@@ -1,0 +1,10 @@
+{
+  "name": "join-group",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eternalz Document Manager — verifies invite codes and adds the caller to the group's team.",
+  "main": "main.js",
+  "dependencies": {
+    "node-appwrite": "^29.3.1"
+  }
+}

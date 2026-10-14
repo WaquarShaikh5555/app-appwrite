@@ -4,34 +4,25 @@
  *
  * Usage (from the repo root):
  *
- *   APPWRITE_API_KEY=your-key node scripts/setup-appwrite.mjs
+ *   node scripts/setup-appwrite.mjs
+ *
+ * It asks for the API key if one isn't already in the environment, which is the
+ * same command on macOS, Linux and Windows. (Prefer the environment? Set
+ * APPWRITE_API_KEY and it is used as-is — that is the form to use in CI.)
  *
  * Optional overrides:
  *   APPWRITE_ENDPOINT     default https://tor.cloud.appwrite.io/v1
  *   APPWRITE_PROJECT_ID   default 6acf0e9b0034e6ac2483
+ *   APPWRITE_API_KEY      skips the prompt
  *
  * Idempotent: run it as often as you like; existing resources are left alone.
  *
- * The API key is read from the environment and never written to disk. Use a key
- * scoped to what this touches (databases, tables, buckets) and delete it
- * afterwards if you don't plan to re-run the script.
+ * The key is never written to disk and is not echoed while you type it.
  */
 
-import {
-  Client,
-  Compression,
-  Databases,
-  Permission,
-  Query,
-  Role,
-  Storage,
-  TablesDB,
-  TablesDBIndexType,
-} from "node-appwrite";
 
 const ENDPOINT = process.env.APPWRITE_ENDPOINT ?? "https://tor.cloud.appwrite.io/v1";
 const PROJECT_ID = process.env.APPWRITE_PROJECT_ID ?? "6acf0e9b0034e6ac2483";
-const API_KEY = process.env.APPWRITE_API_KEY;
 
 const DATABASE_ID = "eternalz";
 const GROUPS_TABLE_ID = "vault_groups";
@@ -46,15 +37,121 @@ const ALLOWED_EXTENSIONS = [
   "jpg", "jpeg", "png", "webp", "gif", "heic", "heif", "bmp",
 ];
 
-if (!API_KEY) {
-  console.error(
-    "\n✖ APPWRITE_API_KEY is not set.\n\n" +
-      "  Create one in the Appwrite console (Project → Overview → API keys) with\n" +
-      "  the Databases, Tables, Buckets and Teams scopes, then run:\n\n" +
-      "    APPWRITE_API_KEY=your-key node scripts/setup-appwrite.mjs\n",
+/**
+ * Ask for the key without echoing it.
+ *
+ * `APPWRITE_API_KEY=… node script` is bash syntax; it fails in PowerShell and
+ * goes into shell history where a key does not belong. Prompting keeps the same
+ * one command working everywhere, and the key never touches disk or history.
+ */
+async function promptForKey() {
+  if (!process.stdin.isTTY) {
+    console.error(
+      "\n✖ APPWRITE_API_KEY is not set and there is no terminal to ask in.\n\n" +
+        "  Create a key in the Appwrite console (Project → Overview → API keys)\n" +
+        "  with the Databases, Tables, Buckets and Functions scopes, then either\n" +
+        "  set APPWRITE_API_KEY in the environment or run this script from a\n" +
+        "  terminal and it will ask for it.\n",
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    "\nEternalz · Document Manager setup\n\n" +
+      "  Paste an Appwrite API key with the Databases, Tables, Buckets and\n" +
+      "  Functions scopes (console → Overview → Integrations → API keys).\n" +
+      "  It is not saved anywhere.\n",
   );
-  process.exit(1);
+
+  return new Promise((resolve) => {
+    const input = process.stdin;
+    const wasRaw = input.isRaw;
+
+    const finish = (value) => {
+      if (input.isRaw) input.setRawMode(wasRaw ?? false);
+      input.pause();
+      process.stdout.write("\n");
+      const key = value.trim().replace(/^["']|["']$/g, "");
+      if (!key) {
+        console.error("✖ No key entered. Nothing was changed.\n");
+        process.exit(1);
+      }
+      resolve(key);
+    };
+
+    process.stdout.write("  API key: ");
+    input.resume();
+    input.setEncoding("utf8");
+
+    // Read keystrokes ourselves so the key is never echoed to the screen.
+    if (typeof input.setRawMode === "function") input.setRawMode(true);
+
+    let buffer = "";
+    const onData = (chunk) => {
+      for (const char of String(chunk)) {
+        if (char === "\r" || char === "\n") {
+          input.removeListener("data", onData);
+          finish(buffer);
+          return;
+        }
+        if (char === "\u0003") {
+          // Ctrl-C
+          input.removeListener("data", onData);
+          if (input.isRaw) input.setRawMode(wasRaw ?? false);
+          process.stdout.write("\n");
+          process.exit(130);
+        }
+        if (char === "\u007f" || char === "\b") {
+          buffer = buffer.slice(0, -1);
+          continue;
+        }
+        if (char === "\u001b") continue; // ignore escape sequences
+        buffer += char;
+      }
+    };
+    input.on("data", onData);
+  });
 }
+
+/**
+ * Load the Appwrite server SDK.
+ *
+ * Imported dynamically so this runs before anything else: if dependencies are
+ * missing, a static import would crash with a raw ERR_MODULE_NOT_FOUND stack
+ * trace and tell a newcomer nothing, and asking for an API key first would waste
+ * their time on a step that cannot work yet. This way the first thing they read
+ * is the one command that fixes it.
+ */
+async function loadSdk() {
+  try {
+    return await import("node-appwrite");
+  } catch (error) {
+    if (error?.code === "ERR_MODULE_NOT_FOUND" || /Cannot find package/.test(error?.message ?? "")) {
+      console.error(
+        "\n✖ Dependencies aren't installed yet.\n\n" +
+          "  From the project folder (where package.json lives), run:\n\n" +
+          "    pnpm install\n\n" +
+          "  then run this script again.\n",
+      );
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
+const {
+  Client,
+  Compression,
+  Databases,
+  Permission,
+  Query,
+  Role,
+  Storage,
+  TablesDB,
+  TablesDBIndexType,
+} = await loadSdk();
+
+const API_KEY = (process.env.APPWRITE_API_KEY ?? "").trim() || (await promptForKey());
 
 const client = new Client().setEndpoint(ENDPOINT).setProject(PROJECT_ID).setKey(API_KEY);
 const databases = new Databases(client);

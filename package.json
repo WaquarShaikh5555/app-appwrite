@@ -10,7 +10,9 @@
     "web": "expo start --web",
     "build": "expo export --platform web",
     "test": "jest --watchAll",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "vault:setup": "node scripts/setup-appwrite.mjs",
+    "vault:test": "node scripts/test-vault-logic.mjs"
   },
   "jest": {
     "preset": "jest-expo"

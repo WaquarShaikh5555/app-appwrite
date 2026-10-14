@@ -12,7 +12,8 @@ Created by **Waquar Shaikh**.
 
 - **First-run tour** — four quick screens on first launch: what Eternalz is, who built it, the tools that are on the way, and where to find everything.
 - **Dashboard (Home)** — brand masthead, live connection chip, stats, the featured roadmap, and your account state.
-- **Tools** — the full roadmap; tap any card to see what that tool will do. New tools appear here as they ship.
+- **Document Manager** — the first live tool. Private, invite-only file rooms for families and small teams: store PDFs, photos, spreadsheets and documents, with on-device photo and PDF tools. [How it works](docs/VAULT.md) · [Setup guide](docs/SETUP.md).
+- **Tools** — the full roadmap; live tools open when tapped, the rest show what they'll do. New tools appear here as they ship.
 - **Settings** — your account, an **Appwrite connection test**, the roadmap count, and About.
 - **Accounts** — sign up, log in, log out, persisted sessions, account details. Powered by Appwrite's Account service.
 
@@ -39,6 +40,17 @@ pnpm ios        # iOS (macOS only)
 
 Settings → **Test connection** pings Appwrite and shows the round-trip time, so you can confirm the project is wired correctly.
 
+### Document Manager backend
+
+The file rooms need a bucket, two tables and one function before they'll work. Two ways to do it — pick whichever suits you:
+
+```bash
+pnpm vault:setup    # creates everything; asks for an API key (never saved to disk)
+pnpm vault:test     # 60 offline logic checks, no backend needed
+```
+
+…or create the resources by hand in the Appwrite console, no terminal at all. Both routes are covered step by step in **[docs/SETUP.md](docs/SETUP.md)**; it also includes where commands actually run, which is not inside Appwrite. Then open **Tools → Document Manager → Setup check** in the app to verify the backend.
+
 > **Running on web?** The browser enforces CORS. If the connection test fails there, add a **Web platform** in the Appwrite console (Project → Platforms) for the host you're serving from. Android and iOS have no such rule.
 
 ## Verify without a device
@@ -60,7 +72,13 @@ app/                 onboarding, login, signup, account, about
 components/ui/       GlassCard, Button, Chip, TextField, Screen, ListRow, GlowBackground
 components/          BrandMark, icons
 context/             auth (Appwrite sessions), onboarding (first-run flag)
-constants/           appwrite client + roadmap data
+constants/           appwrite client + roadmap data + vault ids
+services/vault/      Document Manager: groups, files, crypto, PDF + photo tools
+components/vault/    FileCard, GroupCard
+app/documents/       Document Manager screens
+functions/join-group Appwrite Function: verifies invite codes server-side
+scripts/             setup-appwrite.mjs, test-vault-logic.mjs
+docs/                SETUP.md, VAULT.md
 theme/               design tokens
 skills/              vendored Appwrite agent skills
 ```
