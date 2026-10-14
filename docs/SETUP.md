@@ -249,7 +249,20 @@ declaring that dependency. If you don't have the CLI, use Option 1.
 
 ---
 
-## Part 5 — Check everything
+## Part 5 — Install and check everything
+
+### Getting the app onto a phone
+
+The build runs on GitHub's runners (this sandbox has no Android SDK) and attaches an APK to each run:
+
+1. Open **[Actions → Android APK](https://github.com/WaquarShaikh5555/app-appwrite/actions/workflows/android-apk.yml)**.
+2. Pick the newest run with a green tick.
+3. Scroll to **Artifacts** and download `eternalz-apk-<n>.zip`.
+4. Unzip it, copy the `.apk` to your phone, and tap it — Android will ask once to allow installs from that source.
+
+Note the APK is signed with Android's debug keystore, which is fine for sideloading and testing but is not a Play Store key.
+
+### Check everything
 
 Open the app → **Tools → Document Manager**.
 

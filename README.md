@@ -40,6 +40,21 @@ pnpm ios        # iOS (macOS only)
 
 Settings → **Test connection** pings Appwrite and shows the round-trip time, so you can confirm the project is wired correctly.
 
+### Install the app on a phone (APK)
+
+Every push to this branch builds an installable APK on GitHub's runners and attaches it to the run:
+
+**→ [Latest Android build](https://github.com/WaquarShaikh5555/app-appwrite/actions/workflows/android-apk.yml)**
+
+Open the newest successful run, scroll to **Artifacts**, and download `eternalz-apk-<n>`. Unzip it, move the `.apk` to your phone, and tap it. Android will ask you to allow installing from that source the first time — that is the standard sideloading prompt.
+
+Two things worth knowing:
+
+- The APK is signed with Android's **debug keystore**, which Expo's template wires up for release builds. Android accepts it for sideloading, so it installs and runs normally — but it is not a Play Store key, and a future build has to use the same key to upgrade over an existing installation.
+- The Document Manager needs its backend provisioned first ([docs/SETUP.md](docs/SETUP.md)), otherwise it opens and reports what is missing. Everything else — the tour, the dashboard, accounts, the tools list — works immediately.
+
+The build is defined in [`.github/workflows/android-apk.yml`](.github/workflows/android-apk.yml): it runs `expo prebuild` (so `android/` stays untracked and `app.json` remains the source of truth), builds two ABIs, and refuses to publish an artifact unless it is a genuinely signed APK with a manifest, dex and arm64 native code — see [`scripts/verify-apk.mjs`](scripts/verify-apk.mjs).
+
 ### Document Manager backend
 
 The file rooms need a bucket, two tables and one function before they'll work. Two ways to do it — pick whichever suits you:

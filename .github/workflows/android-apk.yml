@@ -24,6 +24,11 @@ on:
     branches:
       - arena/6bb475ae-app-appwrite
       - main
+    # Documentation alone should not spend 14 minutes compiling C++.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
   workflow_dispatch:
     inputs:
       architectures:
