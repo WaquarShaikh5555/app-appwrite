@@ -1,4 +1,4 @@
-import { Account, Client } from "appwrite";
+import { Account, Client, Functions, Storage, TablesDB, Teams } from "appwrite";
 
 /**
  * Appwrite project details.
@@ -27,3 +27,15 @@ export const client = new Client()
 
 /** Auth service — sign up, log in, log out, current user. */
 export const account = new Account(client);
+
+/** TablesDB (Appwrite 1.9 naming) — rows live in tables. */
+export const tablesDB = new TablesDB(client);
+
+/** Storage — file bytes live in buckets. */
+export const storage = new Storage(client);
+
+/** Teams — the access boundary for the Document Manager. */
+export const teams = new Teams(client);
+
+/** Functions — used for the invite-code join flow. */
+export const functions = new Functions(client);

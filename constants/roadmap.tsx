@@ -1,6 +1,7 @@
 import { ComponentType } from "react";
 import {
   IconBell,
+  IconFolder,
   IconBook,
   IconBolt,
   IconChart,
@@ -10,7 +11,7 @@ import {
   IconWallet,
 } from "@/components/icons";
 
-export type ToolStatus = "soon" | "planned";
+export type ToolStatus = "live" | "soon" | "planned";
 
 export interface ToolEntry {
   id: string;
@@ -20,6 +21,10 @@ export interface ToolEntry {
   icon: ComponentType<{ size?: number; color?: string }>;
   /** Shown on the dashboard. */
   featured?: boolean;
+  /** Set for live tools: where tapping the card should take you. */
+  route?: string;
+  /** Bullet points describing what a live tool actually does. */
+  highlights?: string[];
 }
 
 /**
@@ -27,6 +32,22 @@ export interface ToolEntry {
  * as they ship — this list is the single source of truth for both screens.
  */
 export const ROADMAP: ToolEntry[] = [
+  {
+    id: "documents",
+    name: "Document Manager",
+    description:
+      "Private, invite-only folders for families and teams. Store PDFs, photos, spreadsheets and documents, with built-in photo and PDF tools.",
+    status: "live",
+    icon: IconFolder,
+    featured: true,
+    route: "/documents",
+    highlights: [
+      "Groups with an invite code — access enforced by Appwrite teams, not by the UI",
+      "Upload, download, preview and delete PDFs, images, spreadsheets and documents",
+      "Photo editor: rotate, mirror, resize and compress, on-device",
+      "PDF tools: rotate, reorder, remove and merge pages, on-device",
+    ],
+  },
   {
     id: "tasks",
     name: "Task Tracker",
@@ -89,8 +110,12 @@ export const ROADMAP: ToolEntry[] = [
 ];
 
 export const statusLabel: Record<ToolStatus, string> = {
+  live: "Live",
   soon: "Almost ready",
   planned: "Planned",
 };
+
+/** Tools that are actually shipped — used for the "live" counters. */
+export const LIVE_TOOLS = ROADMAP.filter((tool) => tool.status === "live");
 
 export const TOOLS_IN_WORK = ROADMAP.length;

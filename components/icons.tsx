@@ -165,3 +165,144 @@ export const IconWand = (p: IconProps) => (
     <Path d="M19.4 13.4l.5 1.4 1.4.5-1.4.5-.5 1.4-.5-1.4-1.4-.5 1.4-.5.5-1.4Z" />
   </Icon>
 );
+
+/* ── Document manager ──────────────────────────────────────────────────── */
+
+export const IconFolder = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M3.4 7.4a2 2 0 0 1 2-2h3.4l1.8 2.2h8a2 2 0 0 1 2 2v7.8a2 2 0 0 1-2 2H5.4a2 2 0 0 1-2-2V7.4Z" />
+  </Icon>
+);
+
+export const IconUpload = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M12 16.4V4.6" />
+    <Path d="M7.6 9l4.4-4.4L16.4 9" />
+    <Path d="M4.6 15.4v2.8a2 2 0 0 0 2 2h10.8a2 2 0 0 0 2-2v-2.8" />
+  </Icon>
+);
+
+export const IconDownload = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M12 4.6v11.8" />
+    <Path d="M16.4 12 12 16.4 7.6 12" />
+    <Path d="M4.6 15.4v2.8a2 2 0 0 0 2 2h10.8a2 2 0 0 0 2-2v-2.8" />
+  </Icon>
+);
+
+export const IconTrash = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M4.6 7.4h14.8" />
+    <Path d="M9.4 7.4V5.6a1 1 0 0 1 1-1h3.2a1 1 0 0 1 1 1v1.8" />
+    <Path d="M6.6 7.4l.8 11.2a1.6 1.6 0 0 0 1.6 1.5h6a1.6 1.6 0 0 0 1.6-1.5l.8-11.2" />
+  </Icon>
+);
+
+export const IconUsers = (p: IconProps) => (
+  <Icon {...p}>
+    <Circle cx="9.4" cy="8.6" r="3.2" />
+    <Path d="M3.6 19.6c1.2-3 3.3-4.4 5.8-4.4s4.6 1.4 5.8 4.4" />
+    <Path d="M15.6 6.2a3 3 0 0 1 0 5.8" />
+    <Path d="M17.4 15.6c1.4.6 2.5 1.8 3 3.4" />
+  </Icon>
+);
+
+export const IconLock = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M6.6 10.6h10.8a1.8 1.8 0 0 1 1.8 1.8v6a1.8 1.8 0 0 1-1.8 1.8H6.6a1.8 1.8 0 0 1-1.8-1.8v-6a1.8 1.8 0 0 1 1.8-1.8Z" />
+    <Path d="M8.4 10.6V8.2a3.6 3.6 0 0 1 7.2 0v2.4" />
+  </Icon>
+);
+
+export const IconPlus = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M12 5.4v13.2M5.4 12h13.2" />
+  </Icon>
+);
+
+export const IconLink = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M10.4 13.6a3.6 3.6 0 0 0 5.1 0l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-1.3 1.3" />
+    <Path d="M13.6 10.4a3.6 3.6 0 0 0-5.1 0l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l1.3-1.3" />
+  </Icon>
+);
+
+export const IconFile = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M13.6 3.6H7.4a1.8 1.8 0 0 0-1.8 1.8v13.2a1.8 1.8 0 0 0 1.8 1.8h9.2a1.8 1.8 0 0 0 1.8-1.8V8.4l-4.8-4.8Z" />
+    <Path d="M13.4 3.8V8.6h4.8" />
+  </Icon>
+);
+
+export const IconFileImage = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M13.6 3.6H7.4a1.8 1.8 0 0 0-1.8 1.8v13.2a1.8 1.8 0 0 0 1.8 1.8h9.2a1.8 1.8 0 0 0 1.8-1.8V8.4l-4.8-4.8Z" />
+    <Path d="M13.4 3.8V8.6h4.8" />
+    <Circle cx="10.2" cy="13" r="1.1" />
+    <Path d="M6.6 19.4l3.6-3.8 2.6 2.4 2-1.8 2.6 2.4" />
+  </Icon>
+);
+
+export const IconFilePdf = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M13.6 3.6H7.4a1.8 1.8 0 0 0-1.8 1.8v13.2a1.8 1.8 0 0 0 1.8 1.8h9.2a1.8 1.8 0 0 0 1.8-1.8V8.4l-4.8-4.8Z" />
+    <Path d="M13.4 3.8V8.6h4.8" />
+    <Path d="M8.6 17.4v-4.2h1.3a1.2 1.2 0 0 1 0 2.4H8.6" />
+    <Path d="M13.4 13.2v4.2h1a1.6 1.6 0 0 0 1.6-1.6v-1a1.6 1.6 0 0 0-1.6-1.6h-1Z" />
+  </Icon>
+);
+
+export const IconFileSheet = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M13.6 3.6H7.4a1.8 1.8 0 0 0-1.8 1.8v13.2a1.8 1.8 0 0 0 1.8 1.8h9.2a1.8 1.8 0 0 0 1.8-1.8V8.4l-4.8-4.8Z" />
+    <Path d="M13.4 3.8V8.6h4.8" />
+    <Path d="M7.4 13.4h9.2M7.4 17h9.2M12 13.4V20" />
+  </Icon>
+);
+
+export const IconFileSlides = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M13.6 3.6H7.4a1.8 1.8 0 0 0-1.8 1.8v13.2a1.8 1.8 0 0 0 1.8 1.8h9.2a1.8 1.8 0 0 0 1.8-1.8V8.4l-4.8-4.8Z" />
+    <Path d="M13.4 3.8V8.6h4.8" />
+    <Path d="M7.4 13.6h9.2v4.6H7.4z" />
+  </Icon>
+);
+
+export const IconRotateCw = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M19.4 12a7.4 7.4 0 1 1-2.2-5.2" />
+    <Path d="M19.6 4.6v4.2h-4.2" />
+  </Icon>
+);
+
+export const IconRotateCcw = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M4.6 12a7.4 7.4 0 1 0 2.2-5.2" />
+    <Path d="M4.4 4.6v4.2h4.2" />
+  </Icon>
+);
+
+export const IconFlipHorizontal = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M12 3.6v16.8" />
+    <Path d="M9 7.4 4.6 12 9 16.6V7.4Z" />
+    <Path d="M15 7.4 19.4 12 15 16.6V7.4Z" />
+  </Icon>
+);
+
+export const IconFlipVertical = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M3.6 12h16.8" />
+    <Path d="M7.4 9 12 4.6 16.6 9H7.4Z" />
+    <Path d="M7.4 15 12 19.4 16.6 15H7.4Z" />
+  </Icon>
+);
+
+export const IconLayers = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M12 3.6 3.6 8.4 12 13.2l8.4-4.8L12 3.6Z" />
+    <Path d="M3.6 12.6 12 17.4l8.4-4.8" />
+    <Path d="M3.6 16.4 12 21.2l8.4-4.8" />
+  </Icon>
+);
+

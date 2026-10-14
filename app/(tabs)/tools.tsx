@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Chip } from "@/components/ui/Chip";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { IconSparkle, IconWand } from "@/components/icons";
@@ -17,10 +18,15 @@ import { useEntrance } from "@/hooks/useEntrance";
 import { colors, fonts, radius, space, type } from "@/theme/tokens";
 
 const toneForStatus = (status: ToolStatus) =>
-  status === "soon" ? ("accent" as const) : ("muted" as const);
+  status === "live"
+    ? ("success" as const)
+    : status === "soon"
+      ? ("accent" as const)
+      : ("muted" as const);
 
 export default function ToolsScreen() {
   const { width } = useWindowDimensions();
+  const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
   const intro = useEntrance(40);
 
@@ -38,7 +44,7 @@ export default function ToolsScreen() {
             <Text style={type.overline}>Toolbox</Text>
             <Text style={type.display}>Tools</Text>
             <Text style={type.body}>
-              Every Eternalz tool lands here. Tap any card to see what it will do.
+              Every Eternalz tool lands here. Live ones open when you tap them.
             </Text>
           </Animated.View>
 
@@ -49,10 +55,10 @@ export default function ToolsScreen() {
                   <IconWand size={22} color={colors.primaryBright} />
                 </View>
                 <View style={styles.bannerText}>
-                  <Text style={type.bodyStrong}>Nothing shipped yet — on purpose</Text>
+                  <Text style={type.bodyStrong}>One tool live, more on the way</Text>
                   <Text style={[type.caption, styles.bannerBody]}>
-                    The foundations are in place: accounts, cloud sync and this
-                    dashboard. The first tools are being built now.
+                    Document Manager has shipped. The rest of the roadmap is being
+                    built now — announcements land in Settings.
                   </Text>
                 </View>
               </View>
@@ -79,7 +85,13 @@ export default function ToolsScreen() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`${tool.name} — ${statusLabel[tool.status]}`}
-                    onPress={() => setOpenId(open ? null : tool.id)}
+                    onPress={() => {
+                      if (tool.status === "live" && tool.route) {
+                        router.push(tool.route as never);
+                        return;
+                      }
+                      setOpenId(open ? null : tool.id);
+                    }}
                   >
                     <GlassCard emphasis={open} style={styles.card}>
                       <View style={styles.iconTile}>
