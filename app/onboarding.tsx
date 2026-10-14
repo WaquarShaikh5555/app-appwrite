@@ -21,7 +21,7 @@ import {
 } from "@/components/icons";
 import { useOnboarding } from "@/context/onboarding";
 import { useEntrance, usePulse } from "@/hooks/useEntrance";
-import { colors, fonts, radius, space, type } from "@/theme/tokens";
+import { colors, fonts, glow, radius, space, type } from "@/theme/tokens";
 
 interface Slide {
   overline: string;
@@ -226,12 +226,8 @@ const styles = StyleSheet.create({
     paddingTop: space.lg,
   },
   markGlow: {
-    shadowColor: "#8B5CF6",
-    shadowOpacity: 0.7,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 10,
     borderRadius: radius.xl,
+    ...glow.primary,
   },
   wordmark: {
     fontFamily: fonts.display,

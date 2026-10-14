@@ -30,7 +30,7 @@ export const GlowBackground = () => {
   };
 
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+    <View style={[StyleSheet.absoluteFill, styles.none]}>
       <LinearGradient colors={gradients.backdrop} style={StyleSheet.absoluteFill} />
 
       <Animated.View
@@ -73,6 +73,9 @@ export const GlowBackground = () => {
 };
 
 const styles = StyleSheet.create({
+  none: {
+    pointerEvents: "none",
+  },
   orb: {
     position: "absolute",
     overflow: "hidden",

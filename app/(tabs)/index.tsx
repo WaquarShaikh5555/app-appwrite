@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import {
   Animated,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,7 +20,7 @@ import { useAuth } from "@/context/auth";
 import { useOnboarding } from "@/context/onboarding";
 import { ROADMAP, TOOLS_IN_WORK } from "@/constants/roadmap";
 import { useEntrance, usePulse } from "@/hooks/useEntrance";
-import { colors, fonts, radius, space, type } from "@/theme/tokens";
+import { colors, fonts, glow, radius, space, type } from "@/theme/tokens";
 
 const APP_VERSION = "0.1.0";
 
@@ -233,12 +234,8 @@ const styles = StyleSheet.create({
     paddingBottom: space.sm,
   },
   markGlow: {
-    shadowColor: "#8B5CF6",
-    shadowOpacity: 0.7,
-    shadowRadius: 26,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
     borderRadius: radius.xl,
+    ...glow.primary,
   },
   wordmark: {
     fontFamily: fonts.display,
@@ -246,8 +243,13 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     letterSpacing: 7,
     color: colors.text,
-    textShadowColor: "rgba(139,92,246,0.75)",
-    textShadowRadius: 18,
+    ...Platform.select({
+      web: { textShadow: "0 0 18px rgba(139,92,246,0.75)" },
+      default: {
+        textShadowColor: "rgba(139,92,246,0.75)",
+        textShadowRadius: 18,
+      },
+    }),
   },
   tagline: {
     ...type.caption,

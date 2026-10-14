@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 
 /**
  * Eternalz design tokens — derived from the brand mark: deep cosmic black,
@@ -48,22 +48,35 @@ export const gradients = {
   orbB: ["rgba(76,29,149,0.35)", "rgba(76,29,149,0.0)"] as const,
 } as const;
 
+/**
+ * Glow shadows. React Native Web rejects the legacy `shadow*` props in favour
+ * of `boxShadow`, so the two platforms get different (equivalent) declarations
+ * from one place — screens never deal with the difference.
+ */
 export const glow = {
-  primary: {
-    shadowColor: "#8B5CF6",
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-  },
-  soft: {
-    shadowColor: "#8B5CF6",
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-} as const;
+  primary:
+    Platform.select({
+      web: { boxShadow: "0 6px 18px rgba(139,92,246,0.55)" },
+      default: {
+        shadowColor: "#8B5CF6",
+        shadowOpacity: 0.55,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 8,
+      },
+    }) ?? {},
+  soft:
+    Platform.select({
+      web: { boxShadow: "0 4px 12px rgba(139,92,246,0.30)" },
+      default: {
+        shadowColor: "#8B5CF6",
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 4,
+      },
+    }) ?? {},
+};
 
 export const radius = {
   sm: 10,
