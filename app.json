@@ -27,6 +27,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/with-pinned-kotlin",
       "expo-router",
       [
         "expo-splash-screen",

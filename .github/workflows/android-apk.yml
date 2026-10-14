@@ -33,6 +33,9 @@ concurrency:
 env:
   EXPO_NO_TELEMETRY: "1"
   CI: "1"
+  # Gradle's expo-constants task warns without it, and a release build is what
+  # this is anyway.
+  NODE_ENV: production
 
 jobs:
   apk:
