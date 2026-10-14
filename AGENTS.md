@@ -1,38 +1,72 @@
 # AGENTS.md
 
-Project context for this repo. Read this first — it tells you which skill to load and what the conventions are.
+Project context for this repo. Read this first — it tells you which skill to load, what the conventions are, and what this sandbox can and cannot do.
 
 ## Project
 
-`app-appwrite` — an Appwrite-backed TypeScript app.
+An Expo / React Native app (Appwrite's `starter-for-react-native` shape) wired to the **Eternalz** Appwrite project. The home screen is a demo that pings Appwrite and logs the response.
 
-> **TODO (fill in as the project takes shape):** what it does, entry points, folder layout, dev/build/test commands, and the Appwrite project ID / region it targets. Right now the repo carries context and skills only — no application code is scaffolded yet.
+| | |
+|---|---|
+| Appwrite project name | `Eternalz` |
+| Appwrite project ID | `6acf0e9b0034e6ac2483` |
+| Appwrite endpoint | `https://tor.cloud.appwrite.io/v1` (Toronto / `tor` region) |
+| Kit origin | `appwrite/starter-for-react-native` @ `8430139` (2025-12-13) |
+
+Project ID and endpoint are **baked into `constants/appwrite.ts`** (with `EXPO_PUBLIC_*` overrides) so nothing depends on a `.env` file existing. They are not secrets.
+
+```
+app/                   expo-router routes — index.tsx holds the ping demo (doPing → client.ping())
+constants/appwrite.ts  single source of truth: endpoint, project ID, name, shared `client`
+components/            Header (the "Send a ping" button), Logs (project meta + request table)
+assets/ styles/ types/
+skills/                vendored Appwrite agent skills
+```
+
+### Commands
+
+```bash
+pnpm install
+pnpm web | pnpm android | pnpm ios   # dev servers
+pnpm build                            # web export (verifies the app bundles)
+npx tsc --noEmit                      # typecheck — keep this green
+pnpm lint
+```
 
 ## Skills — read before doing Appwrite work
 
-- **`skills/appwrite-typescript/SKILL.md`** — TypeScript SDK across web, React Native, and Node. Client setup, auth (email/password, OAuth, anonymous), TablesDB queries, storage, realtime subscriptions, SSR auth, teams, error handling, permissions. Read this before writing any Appwrite client or server code.
-- **`skills/appwrite-cli/SKILL.md`** — CLI workflow. When to use `appwrite.config.json` vs a one-off `appwrite client` call, separating auth from project selection, `pull`/`push` semantics, `appwrite generate` for type-safe code, function/site variables, query flags, CI keys. Read this before running `appwrite` or editing `appwrite.config.json`.
+- **`skills/appwrite-typescript/SKILL.md`** — SDK usage: client setup, auth (email/OAuth/anonymous), TablesDB queries, storage, realtime, SSR auth, teams, permissions. Read before writing Appwrite code.
+- **`skills/appwrite-cli/SKILL.md`** — CLI workflow: `appwrite.config.json` vs one-off `appwrite client` calls, auth vs project selection, `pull`/`push`, `appwrite generate`, function/site variables. Read before running `appwrite`.
 
-Vendored from <https://github.com/appwrite/skills> (pinned commit in [`skills/README.md`](skills/README.md), which also documents how to update them). Files there are kept byte-identical to upstream — don't edit them in place; upstream the change instead.
+Vendored from <https://github.com/appwrite/skills> (pinned commit in [`skills/README.md`](skills/README.md)). Keep those files byte-identical to upstream — upstream fixes rather than editing in place.
 
 ## Conventions
 
-- **Appwrite version:** server 1.9.x. Use current naming — **TablesDB** (`tables` / `rows`), not the legacy Databases (`collections` / `documents`).
-- **SDK selection:** `appwrite` for web, `react-native-appwrite` for React Native, `node-appwrite` for server/Node. API keys are server-only — never pass one to a browser client.
-- **Endpoint:** `https://<REGION>.cloud.appwrite.io/v1` (regional hosts, not bare `cloud.appwrite.io`). Read it from env alongside the project ID.
-- **Config:** secrets come from env vars — `APPWRITE_ENDPOINT`, `APPWRITE_PROJECT_ID`, `APPWRITE_API_KEY`. Commit a `.env.example`; never commit `.env`, keys, or secrets. Keep the API key out of `appwrite.config.json`.
-- **Project state lives in the repo:** schema and functions belong in a committed `appwrite.config.json`, synced with `pull`/`push`. Don't provision resources through ad-hoc CLI calls that leave no trace for the next clone.
-- **Scripting:** pass `--json` to any CLI command whose output gets parsed.
+- **Client:** import `client` from `@/constants/appwrite`. Never construct a second `Client`.
+- **SDK:** `Client` comes from `appwrite` (v21), which serves both web and React Native in this Expo app. `react-native-appwrite` is still in `package.json` from the starter but is **unused** — don't add imports from it without switching the whole client over.
+- **Naming:** current Appwrite is **TablesDB** (`tables`/`rows`), not legacy Databases (`collections`/`documents`).
+- **Endpoints:** regional hosts (`https://<REGION>.cloud.appwrite.io/v1`), not bare `cloud.appwrite.io`.
+- **Secrets:** project ID + endpoint are fine in the client. **API keys are not** — server-side only, via env vars, never committed, never imported into `app/`.
+- **Verify before claiming done:** `npx tsc --noEmit` and, if web is touched, `pnpm build`.
 
-## Environment limits (agent sandboxes)
+## Environment limits (agent sandbox)
 
-Network egress is restricted to `github.com`, `codeload.github.com`, `api.github.com`, `registry.npmjs.org`, `pypi.org`, and `files.pythonhosted.org`. Verified in the current sandbox: **`cloud.appwrite.io` is unreachable and Docker is not available.**
+Network egress is limited to `github.com`, `codeload.github.com`, `api.github.com`, `registry.npmjs.org`, `pypi.org`, `files.pythonhosted.org`. Consequences:
 
-- ✅ Install packages from npm/PyPI, write and typecheck SDK code, run unit tests against mocks, hand-edit `appwrite.config.json`
-- ❌ `appwrite login`, `init project`, `pull`/`push`, creating tables/functions, or deploying anything against a live project
+- **No mobile runs.** `adb`, `emulator`, `java`, `xcrun` are all absent → `pnpm android` / `pnpm ios` cannot run in the sandbox. Only the user can do those.
+- **Appwrite is unreachable.** `cloud.appwrite.io` and `tor.cloud.appwrite.io` are blocked → no live ping, no CLI login/pull/push, no project provisioning from the sandbox.
+- **Expo's version API is blocked** (`api.expo.dev`), and `expo start` dies with `TypeError: fetch failed` without offline mode. Always start the dev server as:
 
-Write Appwrite code so it is testable without a backend (inject or mock the client), and when a step genuinely requires a live project, say so explicitly instead of silently skipping it.
+  ```bash
+  EXPO_NO_TELEMETRY=1 EXPO_OFFLINE=1 pnpm exec expo start --web --host lan --port 8081
+  ```
 
-## Verification
+  `--host lan` binds `0.0.0.0` so the sandbox live preview works. Metro accepts the proxied `Host` header.
 
-Before claiming a task is done: typecheck (`npx tsc --noEmit` once a `tsconfig.json` exists), and run whatever lint/test setup is configured. State plainly what could not be verified locally.
+**So:** the sandbox can install deps, typecheck, bundle, and serve the app; it cannot run a device build or reach a live Appwrite. Web previews reach Appwrite from the *user's* browser, which is a real end-to-end check — but say so explicitly instead of implying the sandbox pinged the server.
+
+## Known issues
+
+1. **pnpm phantom dependencies.** `@babel/runtime` (Metro's Babel transform injects it) and `query-string` (expo-router's SSR build requires it) are declared explicitly in `package.json`. npm's flat `node_modules` used to leak both to the root; pnpm's isolated layout does not, so `pnpm build` and the web dev server fail without them. Keep them, and pin `@babel/runtime` to `^7.x` — v8 mismatches this Babel 7 / Expo SDK 52 toolchain.
+2. **`.npmrc` `node-linker` is ignored by pnpm 12** (the setting isn't honoured; the layout stays isolated). Fixing the phantom deps above was the working alternative — don't add an `.npmrc` that pretends otherwise.
+3. **`app.json` references assets that don't exist:** `assets/images/icon.png` and `assets/images/adaptive-icon.png`. Harmless for `expo start`, but `expo prebuild` / EAS builds will fail until they're supplied or remapped to real files.
