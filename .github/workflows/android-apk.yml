@@ -42,16 +42,16 @@ jobs:
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Node 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
 
@@ -88,12 +88,41 @@ jobs:
           # dropping them roughly halves the native compile time.
           ARCHS: ${{ github.event.inputs.architectures || 'arm64-v8a,armeabi-v7a' }}
         run: |
-          set -euo pipefail
+          set -o pipefail
           chmod +x gradlew
+          # RN 0.76 is Kotlin- and C++-heavy; the template's 2 GB heap is tight
+          # for a release build. Editing the property is more predictable than
+          # passing -D on the command line.
+          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g/' gradle.properties
           ./gradlew assembleRelease \
-            --no-daemon --parallel \
-            -PreactNativeArchitectures="$ARCHS" \
-            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g"
+            --no-daemon \
+            -PreactNativeArchitectures="$ARCHS" 2>&1 | tee gradle.log
+
+      # The build log is not readable from the development sandbox (GitHub serves
+      # it from a host that is not reachable there), so the failure is echoed into
+      # check annotations, which are readable through the API.
+      - name: Report the Gradle failure
+        if: failure()
+        working-directory: android
+        run: |
+          if [ ! -f gradle.log ]; then echo "gradle.log missing"; exit 0; fi
+          echo "── log size: $(wc -l < gradle.log) lines ──"
+          for label in "What went wrong" "Execution failed" "FAILURE:"; do
+            echo "::group::$label"
+            grep -n -A 18 "$label" gradle.log | head -60 || true
+            echo "::endgroup::"
+          done
+          report() {
+            local title="$1"; shift
+            local body
+            body="$(grep -aE "$1" gradle.log | head -25 | tr '\n' '|' | sed 's/|/%0A/g' | cut -c1-3500)"
+            if [ -n "$body" ]; then echo "::error title=$title::$body"; fi
+          }
+          report "What went wrong" "What went wrong"
+          report "Caused by" "Caused by:"
+          report "Gradle error lines" "(error:|e: |Unresolved reference|Could not (resolve|find|download)|not found|Missing)"
+          report "Failed task" "> Task .*FAILED"
+          report "Log tail" "."
 
       - name: Collect and verify the APK
         id: apk
