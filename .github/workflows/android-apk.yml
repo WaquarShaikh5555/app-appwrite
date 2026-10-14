@@ -8,11 +8,16 @@ name: Android APK
 # runners have the Android SDK preinstalled and unrestricted network access, so
 # this is the build path that actually works.
 #
-# The APK is signed with the standard Android *debug* keystore (Expo's prebuild
-# template wires release builds to it). That is fine for sideloading and testing
-# — Android accepts it — but it is NOT a Play Store key, and installing a later
-# build over this one requires the same key. Swap in a real keystore before you
-# ever publish.
+# The APK is signed with Android's standard *debug* keystore (Expo's prebuild
+# template wires release builds to it). Android accepts that for sideloading, so
+# it installs fine for testing — but it is NOT a Play Store key, and every future
+# build must be signed with the same key to upgrade over an existing install.
+# Swap in a real keystore before publishing.
+#
+# Every stage tees its output to a log file and one reporter turns the useful
+# part into check annotations. That matters because the runner's raw logs are
+# served from a host the development sandbox cannot reach, so a bare
+# "Process completed with exit code 1" would otherwise be all that is visible.
 
 on:
   push:
@@ -33,9 +38,6 @@ concurrency:
 env:
   EXPO_NO_TELEMETRY: "1"
   CI: "1"
-  # Gradle's expo-constants task warns without it, and a release build is what
-  # this is anyway.
-  NODE_ENV: production
 
 jobs:
   apk:
@@ -58,11 +60,15 @@ jobs:
         with:
           node-version: "20"
 
-      # npm, not pnpm: React Native's Gradle autolinking expects a flat,
-      # hoisted node_modules. pnpm's symlinked layout is a known source of
-      # flaky native builds, and an APK that fails to link helps nobody.
+      # npm, not pnpm: React Native's Gradle autolinking expects a flat, hoisted
+      # node_modules. pnpm's symlinked layout is a known source of flaky native
+      # builds.
+      #
+      # --include=dev is deliberate. Config plugins run at prebuild time, and a
+      # stray NODE_ENV=production would make npm skip devDependencies — which
+      # silently broke this build once by removing @expo/config-plugins.
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --include=dev --no-audit --no-fund
 
       - name: Install the Android SDK packages this project pins
         run: |
@@ -82,16 +88,20 @@ jobs:
             "cmake;3.22.1" 2>&1 | tail -5
 
       - name: Generate the native Android project
-        run: npx expo prebuild --platform android --no-install
+        run: |
+          set -o pipefail
+          npx expo prebuild --platform android --no-install 2>&1 | tee prebuild.log
 
       # Bundle the JS before Gradle does, on purpose.
       #
-      # Metro is where this build broke the first time: Gradle's
-      # `createBundleReleaseJsAndAssets` reported only the task name, while the
-      # real cause (a package Metro could not resolve) was buried in the log.
-      # Running it standalone fails fast with a small, readable log — and it also
-      # proves the JS compiles for Android before 10 minutes of native compiling.
+      # Metro is where this build first broke: Gradle's
+      # createBundleReleaseJsAndAssets reported only the task name while the
+      # cause (a package Metro could not resolve) was buried. Running it
+      # standalone fails fast with a small, readable log — and proves the JS
+      # compiles before ten minutes of native compiling.
       - name: Bundle the JavaScript for Android
+        env:
+          NODE_ENV: production
         run: |
           set -o pipefail
           npx expo export:embed \
@@ -99,11 +109,12 @@ jobs:
             --platform android \
             --dev false \
             --bundle-output /tmp/js/index.android.bundle \
-            --assets-dest /tmp/js-assets 2>&1 | tail -25
+            --assets-dest /tmp/js-assets 2>&1 | tee bundle.log | tail -8
 
       - name: Build the APK
         working-directory: android
         env:
+          NODE_ENV: production
           # Two ABIs, not four: x86/x86_64 only matter for emulators, and
           # dropping them roughly halves the native compile time.
           ARCHS: ${{ github.event.inputs.architectures || 'arm64-v8a,armeabi-v7a' }}
@@ -118,38 +129,35 @@ jobs:
             --no-daemon \
             -PreactNativeArchitectures="$ARCHS" 2>&1 | tee gradle.log
 
-      # The build log is not readable from the development sandbox (GitHub serves
-      # it from a host that is not reachable there), so the failure is echoed into
-      # check annotations, which are readable through the API.
-      - name: Report the Gradle failure
+      # Deliberately has no working-directory: the first version of this step
+      # ran inside android/ and failed there, which hid the actual error from
+      # the stage that really broke.
+      - name: Report what failed
         if: failure()
-        working-directory: android
         run: |
-          if [ ! -f gradle.log ]; then echo "gradle.log missing"; exit 0; fi
-          echo "── log size: $(wc -l < gradle.log) lines ──"
-          for label in "What went wrong" "Execution failed" "FAILURE:"; do
-            echo "::group::$label"
-            grep -n -A 18 "$label" gradle.log | head -60 || true
-            echo "::endgroup::"
-          done
-          # Emit a slice of the log as an annotation. `offset` lines forward from
-          # the match, so a failure reason is captured with its context rather
-          # than as a lone header line (which is exactly how the first run
-          # reported nothing useful).
+          emit() {
+            local title="$1" body="$2"
+            [ -n "$body" ] || return 0
+            printf '::error title=%s::%s\n' "$title" \
+              "$(printf '%s' "$body" | sed 's/%/%25/g' | tr '\n' '|' | sed 's/|/%0A/g' | cut -c1-3400)"
+          }
           slice() {
-            local title="$1" pattern="$2" after="${3:-0}" lines="${4:-28}"
-            local body
-            body="$(awk -v pat="$pattern" -v after="$after" -v want="$lines" '
+            local file="$1" pattern="$2" after="${3:-0}" lines="${4:-28}"
+            awk -v pat="$pattern" -v after="$after" -v want="$lines" '
               $0 ~ pat { grab = after + want }
               grab > 0 { print; grab-- }
-            ' gradle.log | head -n 200 | sed 's/%/%25/g' | tr '\n' '|' | sed 's/|/%0A/g' | cut -c1-3400)"
-            if [ -n "$body" ]; then echo "::error title=$title::$body"; fi
+            ' "$file" 2>/dev/null | head -n 200
           }
-          slice "What went wrong" "What went wrong" 22
-          slice "Caused by" "Caused by:" 8
-          slice "Failed task" "> Task .*FAILED" 0 4
-          slice "Build errors" "(error:|Error:|e: |Unresolved reference|Could not resolve|Could not find|No matching|be found|cannot)" 4
-          slice "Log tail" "^BUILD FAILED" 40
+          for log in prebuild.log bundle.log android/gradle.log; do
+            [ -f "$log" ] || continue
+            echo "── $log: $(wc -l < "$log") lines ──"
+            emit "$log — what went wrong" "$(slice "$log" 'What went wrong' 22)"
+            emit "$log — errors" "$(slice "$log" '(Error|error|Cannot|cannot|Unable|Unable to resolve|not found)' 3 12)"
+            emit "$log — tail" "$(slice "$log" '^.*$' 0 0)"
+            echo "::group::tail of $log"
+            tail -40 "$log"
+            echo "::endgroup::"
+          done
 
       - name: Collect and verify the APK
         id: apk
