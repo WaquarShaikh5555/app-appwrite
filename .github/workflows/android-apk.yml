@@ -10,13 +10,13 @@ name: Android APK
 #
 # The APK is signed with Android's standard *debug* keystore (Expo's prebuild
 # template wires release builds to it). Android accepts that for sideloading, so
-# it installs fine for testing — but it is NOT a Play Store key, and every future
-# build must be signed with the same key to upgrade over an existing install.
-# Swap in a real keystore before publishing.
+# it installs fine for testing — but it is NOT a Play Store key, and a future
+# build must use the same key to upgrade over an existing install. Swap in a real
+# keystore before publishing.
 #
-# Every stage tees its output to a log file and one reporter turns the useful
-# part into check annotations. That matters because the runner's raw logs are
-# served from a host the development sandbox cannot reach, so a bare
+# Every stage tees its output to a log file and the final reporter turns the
+# useful part into check annotations. That matters because the runner's raw logs
+# are served from a host the development sandbox cannot reach, so a bare
 # "Process completed with exit code 1" would otherwise be all that is visible.
 
 on:
@@ -61,12 +61,12 @@ jobs:
           node-version: "20"
 
       # npm, not pnpm: React Native's Gradle autolinking expects a flat, hoisted
-      # node_modules. pnpm's symlinked layout is a known source of flaky native
-      # builds.
+      # node_modules, and pnpm's symlinked layout is a known source of flaky
+      # native builds.
       #
       # --include=dev is deliberate. Config plugins run at prebuild time, and a
-      # stray NODE_ENV=production would make npm skip devDependencies — which
-      # silently broke this build once by removing @expo/config-plugins.
+      # stray NODE_ENV=production makes npm skip devDependencies — which silently
+      # broke this build once by removing @expo/config-plugins.
       - name: Install dependencies
         run: npm install --include=dev --no-audit --no-fund
 
@@ -79,7 +79,7 @@ jobs:
           fi
           # compileSdk 35, build-tools 35.0.0 and NDK 26.1.10909125 come from
           # android/build.gradle; Reanimated compiles C++ here, so the NDK and
-          # CMake have to be present and matching.
+          # CMake must be present and matching.
           yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
           "$SDKMANAGER" --install \
             "platforms;android-35" \
@@ -129,9 +129,38 @@ jobs:
             --no-daemon \
             -PreactNativeArchitectures="$ARCHS" 2>&1 | tee gradle.log
 
-      # Deliberately has no working-directory: the first version of this step
-      # ran inside android/ and failed there, which hid the actual error from
-      # the stage that really broke.
+      - name: Collect and verify the APK
+        id: apk
+        run: |
+          exec > >(tee collect.log) 2>&1
+          set -euo pipefail
+          APK=$(find android/app/build/outputs/apk/release -name "*.apk" 2>/dev/null | head -1)
+          if [ -z "$APK" ]; then
+            echo "Gradle produced no APK. Contents of the outputs tree:"
+            find android/app/build/outputs -type f 2>/dev/null | head -40 || true
+            exit 1
+          fi
+          echo "Found $APK ($(du -h "$APK" | cut -f1))"
+          NAME="eternalz-r${GITHUB_RUN_NUMBER}-$(echo "$GITHUB_SHA" | cut -c1-7).apk"
+          cp "$APK" "$NAME"
+          # Fail the build if the artifact would not install: a "successful"
+          # Gradle run can still emit something unsigned, empty, or missing dex.
+          node scripts/verify-apk.mjs "$NAME"
+          echo "path=$NAME" >> "$GITHUB_OUTPUT"
+          echo "size=$(du -h "$NAME" | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: eternalz-apk-${{ github.run_number }}
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      # Last step on purpose, and deliberately without a working-directory: an
+      # earlier version ran inside android/ and died there when prebuild had not
+      # created the directory, hiding the real error behind a shell startup
+      # failure.
       - name: Report what failed
         if: failure()
         run: |
@@ -148,35 +177,11 @@ jobs:
               grab > 0 { print; grab-- }
             ' "$file" 2>/dev/null | head -n 200
           }
-          for log in prebuild.log bundle.log android/gradle.log; do
+          for log in collect.log bundle.log prebuild.log android/gradle.log; do
             [ -f "$log" ] || continue
             echo "── $log: $(wc -l < "$log") lines ──"
-            emit "$log — what went wrong" "$(slice "$log" 'What went wrong' 22)"
-            emit "$log — errors" "$(slice "$log" '(Error|error|Cannot|cannot|Unable|Unable to resolve|not found)' 3 12)"
-            emit "$log — tail" "$(slice "$log" '^.*$' 0 0)"
+            emit "$log — failure" "$(slice "$log" '(What went wrong|not a usable APK|produced no APK|Cannot|cannot|Unable|Error|error)' 3 14)"
             echo "::group::tail of $log"
-            tail -40 "$log"
+            tail -45 "$log"
             echo "::endgroup::"
           done
-
-      - name: Collect and verify the APK
-        id: apk
-        run: |
-          set -euo pipefail
-          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
-          if [ -z "$APK" ]; then echo "Gradle produced no APK"; exit 1; fi
-          NAME="eternalz-r${GITHUB_RUN_NUMBER}-$(echo "$GITHUB_SHA" | cut -c1-7).apk"
-          cp "$APK" "$NAME"
-          # Fail the build if the artifact would not install: a "successful"
-          # Gradle run can still emit something unsigned, empty, or missing dex.
-          node scripts/verify-apk.mjs "$NAME"
-          echo "path=$NAME" >> "$GITHUB_OUTPUT"
-          echo "size=$(du -h "$NAME" | cut -f1)" >> "$GITHUB_OUTPUT"
-
-      - name: Upload the APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: eternalz-apk-${{ github.run_number }}
-          path: ${{ steps.apk.outputs.path }}
-          if-no-files-found: error
-          retention-days: 30

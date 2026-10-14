@@ -74,6 +74,7 @@ function listZipEntries(filePath) {
   let offset = buffer.readUInt32LE(eocd + 16);
 
   const entries = [];
+  const centralDirectoryOffset = offset;
   for (let i = 0; i < count; i += 1) {
     if (buffer.readUInt32LE(offset) !== 0x02014b50) break;
     const nameLength = buffer.readUInt16LE(offset + 28);
@@ -86,8 +87,10 @@ function listZipEntries(filePath) {
     });
     offset += 46 + nameLength + extraLength + commentLength;
   }
-  return { entries, complete: entries.length === count, declaredCount: count };
+  return { entries, complete: entries.length === count, declaredCount: count, centralDirectoryOffset };
 }
+
+const rawBuffer = readFileSync(path);
 
 let zip;
 try {
@@ -119,14 +122,70 @@ check(
   "no classes.dex — the app contains no code and would crash on launch",
 );
 
-const signature = names.find(
-  (name) =>
-    name.startsWith("META-INF/") && /\.(RSA|DSA|EC)$/i.test(name),
+/**
+ * Detect signing properly.
+ *
+ * Checking only for `META-INF/*.RSA` is wrong for anything built by a current
+ * Android Gradle Plugin: since AGP 7 the default is APK Signature Scheme v2/v3,
+ * whose signature lives in the APK Signing Block between the last entry and the
+ * central directory, with no META-INF signature entry at all. v1 (JAR signing)
+ * is legacy and off by default. Checking only for v1 rejects a perfectly valid
+ * release APK — which is exactly what happened on the first successful build.
+ */
+function findApkSigningBlock(buffer, centralDirectoryOffset) {
+  const MAGIC = "APK Sig Block 42";
+  if (centralDirectoryOffset < 32) return null;
+
+  // The block sits immediately before the central directory, and its last 16
+  // bytes are the magic.
+  if (buffer.toString("utf8", centralDirectoryOffset - 16, centralDirectoryOffset) !== MAGIC) {
+    return null;
+  }
+
+  // Layout: [uint64 size][id-value pairs][uint64 size][16-byte magic]
+  const size = Number(buffer.readBigUInt64LE(centralDirectoryOffset - 24));
+  const blockStart = centralDirectoryOffset - size - 8;
+  if (blockStart < 0) return null;
+
+  const schemes = [];
+  let cursor = blockStart + 8;
+  const pairsEnd = centralDirectoryOffset - 24;
+
+  while (cursor + 12 <= pairsEnd) {
+    const pairLength = Number(buffer.readBigUInt64LE(cursor));
+    if (pairLength < 4 || cursor + 8 + pairLength > pairsEnd) break;
+    const id = buffer.readUInt32LE(cursor + 8);
+    if (id === 0x7109871a) schemes.push("v2");
+    else if (id === 0xf05368c0) schemes.push("v3");
+    else if (id === 0x42726577) schemes.push("v3.1");
+    cursor += 8 + pairLength;
+  }
+
+  return { schemes, size };
+}
+
+const v1Signature = names.find(
+  (name) => name.startsWith("META-INF/") && /\.(RSA|DSA|EC)$/i.test(name),
 );
+
+let signingBlock = null;
+try {
+  signingBlock = findApkSigningBlock(rawBuffer, zip.centralDirectoryOffset);
+} catch {
+  signingBlock = null;
+}
+
+const schemes = [
+  ...(v1Signature ? ["v1"] : []),
+  ...(signingBlock ? signingBlock.schemes : []),
+];
+
 check(
-  Boolean(signature),
-  `signed (${signature ?? "checking"})`,
-  "no signature found — Android rejects unsigned APKs",
+  schemes.length > 0,
+  `signed with APK Signature Scheme ${schemes.join(" + ")}${
+    v1Signature ? ` (${v1Signature})` : ""
+  }`,
+  "no APK signature found (neither a META-INF v1 signature nor an APK Signing Block) — Android rejects unsigned APKs",
 );
 
 // ── does it carry native code for the phone? ─────────────────────────────────
