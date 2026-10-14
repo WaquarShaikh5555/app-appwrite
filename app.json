@@ -1,26 +1,30 @@
 {
   "expo": {
-    "name": "starter-react-native",
-    "slug": "starter-react-native",
-    "version": "1.0.0",
+    "name": "Eternalz",
+    "slug": "eternalz",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
-    "userInterfaceStyle": "automatic",
+    "scheme": "eternalz",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#07060D",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.waquarshaikh.eternalz"
     },
     "android": {
+      "package": "com.waquarshaikh.eternalz",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      }
+        "backgroundColor": "#07060D"
+      },
+      "edgeToEdgeEnabled": true
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/appwrite-logo.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       "expo-router",
@@ -30,14 +34,20 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#07060D"
         }
       ],
       [
-      "expo-font",
-      {
-        "fonts": ["node_modules/@expo-google-fonts/poppins/300Light/Poppins_300Light.ttf"]
-      }
+        "expo-font",
+        {
+          "fonts": [
+            "node_modules/@expo-google-fonts/poppins/400Regular/Poppins_400Regular.ttf",
+            "node_modules/@expo-google-fonts/poppins/500Medium/Poppins_500Medium.ttf",
+            "node_modules/@expo-google-fonts/poppins/600SemiBold/Poppins_600SemiBold.ttf",
+            "node_modules/@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf",
+            "node_modules/@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf"
+          ]
+        }
       ]
     ],
     "experiments": {
