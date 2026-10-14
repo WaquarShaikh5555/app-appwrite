@@ -1,4 +1,4 @@
-import { Client } from "appwrite";
+import { Account, Client } from "appwrite";
 
 /**
  * Appwrite project details.
@@ -24,3 +24,6 @@ export const APPWRITE_PROJECT_NAME =
 export const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)
   .setProject(APPWRITE_PROJECT_ID);
+
+/** Auth service — sign up, log in, log out, current user. */
+export const account = new Account(client);

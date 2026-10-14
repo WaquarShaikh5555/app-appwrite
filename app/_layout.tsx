@@ -3,6 +3,7 @@ import { Platform, View } from "react-native";
 import { Poppins_300Light, useFonts } from "@expo-google-fonts/poppins";
 import { Inter_400Regular, Inter_300Light } from "@expo-google-fonts/inter";
 import Head from "expo-router/head";
+import { AuthProvider } from "@/context/auth";
 
 export default function HomeLayout() {
   const [loaded, error] = useFonts({
@@ -14,10 +15,12 @@ export default function HomeLayout() {
     <View style={{ flex: 1, backgroundColor: "#FAFAFB" }}>
       {Platform.OS === "web" && (
         <Head>
-          <title>Appwrite + React Native</title>
+          <title>Eternalz</title>
         </Head>
       )}
-      <Slot />
+      <AuthProvider>
+        <Slot />
+      </AuthProvider>
     </View>
   );
 }

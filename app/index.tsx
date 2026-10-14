@@ -18,6 +18,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Log } from "@/types/log";
 import { AppwriteException } from "appwrite";
 import { client } from "@/constants/appwrite";
+import { AccountBar } from "@/components/AccountBar";
 
 // prevent ssr issues
 function ClientOnlyBottomSheet({ children, ...props }: any) {
@@ -113,6 +114,7 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1 }}>
       <ClientOnlyGestureHandler>
+        <AccountBar />
         <ScrollView>
           <Header pingFunction={doPing} state={connectionState} />
           <View
