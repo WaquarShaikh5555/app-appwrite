@@ -81,6 +81,23 @@ jobs:
       - name: Generate the native Android project
         run: npx expo prebuild --platform android --no-install
 
+      # Bundle the JS before Gradle does, on purpose.
+      #
+      # Metro is where this build broke the first time: Gradle's
+      # `createBundleReleaseJsAndAssets` reported only the task name, while the
+      # real cause (a package Metro could not resolve) was buried in the log.
+      # Running it standalone fails fast with a small, readable log — and it also
+      # proves the JS compiles for Android before 10 minutes of native compiling.
+      - name: Bundle the JavaScript for Android
+        run: |
+          set -o pipefail
+          npx expo export:embed \
+            --entry-file node_modules/expo-router/entry.js \
+            --platform android \
+            --dev false \
+            --bundle-output /tmp/js/index.android.bundle \
+            --assets-dest /tmp/js-assets 2>&1 | tail -25
+
       - name: Build the APK
         working-directory: android
         env:
@@ -112,17 +129,24 @@ jobs:
             grep -n -A 18 "$label" gradle.log | head -60 || true
             echo "::endgroup::"
           done
-          report() {
-            local title="$1"; shift
+          # Emit a slice of the log as an annotation. `offset` lines forward from
+          # the match, so a failure reason is captured with its context rather
+          # than as a lone header line (which is exactly how the first run
+          # reported nothing useful).
+          slice() {
+            local title="$1" pattern="$2" after="${3:-0}" lines="${4:-28}"
             local body
-            body="$(grep -aE "$1" gradle.log | head -25 | tr '\n' '|' | sed 's/|/%0A/g' | cut -c1-3500)"
+            body="$(awk -v pat="$pattern" -v after="$after" -v want="$lines" '
+              $0 ~ pat { grab = after + want }
+              grab > 0 { print; grab-- }
+            ' gradle.log | head -n 200 | sed 's/%/%25/g' | tr '\n' '|' | sed 's/|/%0A/g' | cut -c1-3400)"
             if [ -n "$body" ]; then echo "::error title=$title::$body"; fi
           }
-          report "What went wrong" "What went wrong"
-          report "Caused by" "Caused by:"
-          report "Gradle error lines" "(error:|e: |Unresolved reference|Could not (resolve|find|download)|not found|Missing)"
-          report "Failed task" "> Task .*FAILED"
-          report "Log tail" "."
+          slice "What went wrong" "What went wrong" 22
+          slice "Caused by" "Caused by:" 8
+          slice "Failed task" "> Task .*FAILED" 0 4
+          slice "Build errors" "(error:|Error:|e: |Unresolved reference|Could not resolve|Could not find|No matching|be found|cannot)" 4
+          slice "Log tail" "^BUILD FAILED" 40
 
       - name: Collect and verify the APK
         id: apk
