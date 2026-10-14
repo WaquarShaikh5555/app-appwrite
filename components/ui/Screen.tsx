@@ -20,6 +20,12 @@ interface ScreenProps {
   right?: ReactNode;
   scroll?: boolean;
   contentStyle?: ViewStyle | ViewStyle[];
+  /**
+   * Where the back control goes when there is no history to pop — for screens
+   * outside the tab navigator (which have no tab bar and, in an embedded
+   * preview, no browser back button either).
+   */
+  backFallback?: string;
 }
 
 /**
@@ -34,6 +40,7 @@ export const Screen = ({
   right,
   scroll = true,
   contentStyle,
+  backFallback = "/",
 }: ScreenProps) => {
   const router = useRouter();
   const hasHeader = Boolean(title) || back;
@@ -51,7 +58,7 @@ export const Screen = ({
               accessibilityRole="button"
               accessibilityLabel="Go back"
               onPress={() =>
-                router.canGoBack() ? router.back() : router.replace("/")
+                router.canGoBack() ? router.back() : router.replace(backFallback as never)
               }
               style={({ pressed }) => [styles.back, pressed && styles.backPressed]}
             >

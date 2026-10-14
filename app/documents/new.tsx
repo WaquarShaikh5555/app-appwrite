@@ -27,7 +27,8 @@ export default function NewGroupScreen() {
 
   if (!user) {
     return (
-      <Screen title="New group" subtitle="Sign in required">
+      <Screen title="New group" subtitle="Sign in required"
+      backFallback="/documents">
         <Text style={type.body}>
           Groups belong to your account, so you need to be signed in to create one.
         </Text>

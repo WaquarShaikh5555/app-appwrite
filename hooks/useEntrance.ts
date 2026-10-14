@@ -63,3 +63,29 @@ export function usePulse(duration = 5200) {
 
   return pulse;
 }
+
+/**
+ * Continuous linear spin, for orbital ring lines. Unlike `usePulse` this never
+ * reverses, so a full 0→1 maps cleanly onto 0°→360°.
+ */
+export function useSpin(duration = 90000) {
+  const spin = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
+        duration,
+        easing: Easing.linear,
+        useNativeDriver: Platform.OS !== "web",
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [spin, duration]);
+
+  return spin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+}

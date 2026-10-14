@@ -22,7 +22,8 @@ export default function JoinGroupScreen() {
 
   if (!user) {
     return (
-      <Screen title="Join a group" subtitle="Sign in required">
+      <Screen title="Join a group" subtitle="Sign in required"
+      backFallback="/documents">
         <Text style={type.body}>
           Sign in first so the group knows who you are — membership is tied to
           your account.

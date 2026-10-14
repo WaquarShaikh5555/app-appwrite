@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: "rgba(13,11,24,0.66)",
+    backgroundColor: "rgba(10,8,30,0.72)",
     overflow: "hidden",
   },
   ring: {
@@ -68,10 +68,10 @@ const styles = StyleSheet.create({
   },
   inner: {
     borderRadius: radius.lg,
-    backgroundColor: "rgba(13,11,24,0.92)",
+    backgroundColor: "rgba(9,7,26,0.92)",
   },
   innerEmphasis: {
-    backgroundColor: "rgba(11,9,20,0.86)",
+    backgroundColor: "rgba(9,7,26,0.88)",
   },
   padded: {
     padding: space.lg,

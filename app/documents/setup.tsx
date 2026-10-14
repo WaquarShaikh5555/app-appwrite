@@ -64,13 +64,14 @@ export default function VaultSetupScreen() {
   const allReady = checks?.every((check) => check.status === "ok") ?? false;
 
   return (
-    <Screen title="Setup check" subtitle="Document Manager">
+    <Screen title="Setup check" subtitle="Document Manager"
+      backFallback="/documents">
       <View style={styles.stack}>
         {checks === null || running ? (
           <GlassCard>
             <View style={styles.loadingRow}>
               <ActivityIndicator color={colors.accent} />
-              <Text style={type.body}>Checking your Appwrite project…</Text>
+              <Text style={type.body}>Checking the Eternalz Appwrite backend…</Text>
             </View>
           </GlassCard>
         ) : (

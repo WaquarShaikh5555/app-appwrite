@@ -97,7 +97,7 @@ export default function HomeScreen() {
               </Text>
               <Text style={[type.body, styles.heroBody]}>
                 A calm, dark home for the tools you actually use. Everything here
-                runs on your own Appwrite project — your data, your rules.
+                runs on Eternalz's own Appwrite backend — our tools, our project, no third parties.
               </Text>
             </GlassCard>
           </Animated.View>

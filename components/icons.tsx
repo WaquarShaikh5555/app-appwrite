@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import Svg, { Circle, Path, Rect } from "react-native-svg";
+import Svg, { Circle, Ellipse, Path, Rect } from "react-native-svg";
 import { colors } from "@/theme/tokens";
 
 interface IconProps {
@@ -64,6 +64,21 @@ export const IconChevronRight = (p: IconProps) => (
 export const IconChevronLeft = (p: IconProps) => (
   <Icon {...p}>
     <Path d="M14.5 6l-6 6 6 6" />
+  </Icon>
+);
+
+export const IconArrowRight = (p: IconProps) => (
+  <Icon {...p}>
+    <Path d="M4.6 12h14.2" />
+    <Path d="M13.4 6.6 18.8 12l-5.4 5.4" />
+  </Icon>
+);
+
+/** Orbital glyph — the brand's orbit, used as a section marker. */
+export const IconOrbit = (p: IconProps) => (
+  <Icon {...p}>
+    <Circle cx="12" cy="12" r="3.2" />
+    <Ellipse cx="12" cy="12" rx="9.4" ry="4.2" transform="rotate(-24 12 12)" />
   </Icon>
 );
 
