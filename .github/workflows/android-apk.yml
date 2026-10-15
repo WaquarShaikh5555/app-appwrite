@@ -49,6 +49,8 @@ jobs:
     name: Build release APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write
 
     steps:
       - name: Check out the repository
@@ -154,6 +156,71 @@ jobs:
           echo "path=$NAME" >> "$GITHUB_OUTPUT"
           echo "size=$(du -h "$NAME" | cut -f1)" >> "$GITHUB_OUTPUT"
 
+      # Ground truth, from Android's own tools rather than a hand-rolled parser.
+      #
+      # aapt2 has to parse the binary manifest to print anything, so it is also a
+      # direct test of the one thing that produces "There was a problem parsing
+      # the package": a manifest Android cannot read. apksigner reports which
+      # signature schemes are present, which matters on older devices. The sha256
+      # lets a download be checked after it reaches a phone, and the key lines are
+      # emitted as annotations because the runner's raw logs are not reachable
+      # from the development sandbox.
+      - name: Inspect the APK with Android's build tools
+        run: |
+          exec > >(tee inspect.log) 2>&1
+          set -uo pipefail
+          APK="$(ls eternalz-*.apk | head -1)"
+          BT="${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools/35.0.0"
+          [ -x "$BT/aapt2" ] || { echo "aapt2 not found at $BT"; exit 1; }
+
+          echo "APK:    $APK"
+          echo "bytes:  $(stat -c%s "$APK")"
+          SHA="$(sha256sum "$APK" | cut -d' ' -f1)"
+          echo "sha256: $SHA"
+
+          echo
+          echo "── archive integrity (unzip -t) ──"
+          unzip -t "$APK" 2>&1 | tail -2
+
+          echo
+          echo "── apksigner verify --verbose --print-certs ──"
+          "$BT/apksigner" verify --verbose --print-certs "$APK" 2>&1 | sed -n '1,25p'
+          VERIFIED="$("$BT/apksigner" verify --verbose "$APK" 2>&1 | grep -E '^Verified using' | tr '\n' '|')"
+
+          echo
+          echo "── aapt2 dump badging ──"
+          "$BT/aapt2" dump badging "$APK" 2>&1 | sed -n '1,14p'
+          BADGE="$("$BT/aapt2" dump badging "$APK" 2>&1 \
+            | grep -E '^(package|sdkVersion|targetSdkVersion|native-code|native-code|application-label)' \
+            | tr '\n' '|')"
+
+          echo "::notice title=APK sha256::$SHA"
+          echo "::notice title=APK badging::$BADGE"
+          echo "::notice title=APK signatures::$VERIFIED"
+
+      # A direct .apk download, because Artifacts are always served as a ZIP —
+      # and extracting or renaming that on a phone is the most common cause of
+      # "There was a problem parsing the package". The asset name is fixed so the
+      # URL stays the same for every build:
+      #
+      #   https://github.com/WaquarShaikh5555/app-appwrite/releases/latest/download/eternalz.apk
+      - name: Publish the stable .apk download
+        run: |
+          set -euo pipefail
+          APK="$(ls eternalz-*.apk | head -1)"
+          cp "$APK" eternalz.apk
+          if ! gh release view android-latest >/dev/null 2>&1; then
+            gh release create android-latest \
+              --title "Eternalz — Android APK" \
+              --notes "Sideload build, rebuilt automatically on every push to the build branch. Signed with Android's debug keystore, which is fine for testing but is not a Play Store key. Tap the APK on your phone to install; Android will ask once to allow installs from that source."
+          fi
+          # Replace the existing asset so the URL always serves the newest build.
+          gh release upload android-latest eternalz.apk --clobber
+          echo "Published. Download:"
+          echo "  https://github.com/WaquarShaikh5555/app-appwrite/releases/latest/download/eternalz.apk"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Upload the APK
         uses: actions/upload-artifact@v4
         with:
@@ -182,7 +249,7 @@ jobs:
               grab > 0 { print; grab-- }
             ' "$file" 2>/dev/null | head -n 200
           }
-          for log in collect.log bundle.log prebuild.log android/gradle.log; do
+          for log in inspect.log collect.log bundle.log prebuild.log android/gradle.log; do
             [ -f "$log" ] || continue
             echo "── $log: $(wc -l < "$log") lines ──"
             emit "$log — failure" "$(slice "$log" '(What went wrong|not a usable APK|produced no APK|Cannot|cannot|Unable|Error|error)' 3 14)"
