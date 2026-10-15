@@ -182,6 +182,13 @@ jobs:
         run: |
           exec > >(tee sign.log) 2>&1
           set -euo pipefail
+          # Announce failures here rather than relying on the reporter's
+          # keyword patterns: the first two attempts at this step failed with
+          # messages ("No unsigned release APK", "v1 signature absent") that
+          # matched none of them, so the reason never reached an annotation.
+          trap 'rc=$?; if [ $rc -ne 0 ]; then
+                  echo "::error title=Signing failed (exit $rc)::$(tail -25 sign.log | sed "s/%/%25/g" | tr "\n" "|" | sed "s/|/%0A/g" | cut -c1-3400)"
+                fi; exit $rc' EXIT
           BT="${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools/35.0.0"
 
           echo "build-tools: $BT"
@@ -346,7 +353,8 @@ jobs:
           for log in sign.log inspect.log collect.log bundle.log prebuild.log android/gradle.log; do
             [ -f "$log" ] || continue
             echo "── $log: $(wc -l < "$log") lines ──"
-            emit "$log — failure" "$(slice "$log" '(What went wrong|not a usable APK|produced no APK|Cannot|cannot|Unable|Error|error)' 3 14)"
+            emit "$log — failure" "$(slice "$log" '(What went wrong|not a usable APK|produced no APK|no APK|FAILED|failed|missing|Cannot|cannot|Unable|Error|error|Exception)' 3 14)"
+            emit "$log — tail" "$(tail -40 "$log" | sed 's/%/%25/g' | tr '\n' '|' | sed 's/|/%0A/g' | cut -c1-3400)"
             echo "::group::tail of $log"
             tail -45 "$log"
             echo "::endgroup::"
