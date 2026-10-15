@@ -99,6 +99,42 @@ jobs:
           set -o pipefail
           npx expo prebuild --platform android --no-install 2>&1 | tee prebuild.log
 
+      # Sign the APK ourselves instead of letting Gradle do it.
+      #
+      # Expo's template points the release build type at the debug signing
+      # config, and Android Gradle Plugin then signs v2 only: it disables v1
+      # automatically at minSdkVersion >= 24, and setting enableV1Signing in the
+      # DSL did not change that (verified on a build that reported
+      # "Verified using v1 scheme: false"). The v2 signature covers the whole
+      # file byte-for-byte, so any altered byte makes Android refuse the package
+      # — brittle for something people sideload.
+      #
+      # Removing the signing config here makes Gradle emit
+      # app-release-unsigned.apk, which the next step signs explicitly with both
+      # schemes and then verifies. One tool, one set of flags, no ambiguity.
+      - name: Make the release build unsigned
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re, pathlib
+          path = pathlib.Path("android/app/build.gradle")
+          lines = path.read_text().split("\n")
+          out, in_release, removed = [], False, 0
+          for line in lines:
+              stripped = line.strip()
+              if re.match(r"^release\s*\{", stripped):
+                  in_release = True
+              elif in_release and stripped == "}":
+                  in_release = False
+              elif in_release and stripped.startswith("signingConfig "):
+                  removed += 1
+                  continue
+              out.append(line)
+          path.write_text("\n".join(out))
+          print(f"removed {removed} signingConfig line(s) from the release block")
+          assert removed == 1, "expected exactly one release signingConfig line"
+          PY
+
       # Bundle the JS before Gradle does, on purpose.
       #
       # Metro is where this build first broke: Gradle's
@@ -136,25 +172,57 @@ jobs:
             --no-daemon \
             -PreactNativeArchitectures="$ARCHS" 2>&1 | tee gradle.log
 
-      - name: Collect and verify the APK
+      # zipalign, then sign with APK Signature Scheme v1 *and* v2 using the
+      # debug keystore, then prove it with apksigner before anything is
+      # published. v1 is what makes the file tolerant of a lossy transfer: it
+      # signs entries individually, while v2 signs the whole file, so having both
+      # lets Android fall back instead of reporting a package it cannot parse.
+      - name: Sign the APK with v1 and v2, then verify
         id: apk
         run: |
-          exec > >(tee collect.log) 2>&1
+          exec > >(tee sign.log) 2>&1
           set -euo pipefail
-          APK=$(find android/app/build/outputs/apk/release -name "*.apk" 2>/dev/null | head -1)
-          if [ -z "$APK" ]; then
-            echo "Gradle produced no APK. Contents of the outputs tree:"
+          BT="${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools/35.0.0"
+          RAW=android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if [ ! -f "$RAW" ]; then
+            echo "No unsigned release APK at $RAW. Contents of the outputs tree:"
             find android/app/build/outputs -type f 2>/dev/null | head -40 || true
             exit 1
           fi
-          echo "Found $APK ($(du -h "$APK" | cut -f1))"
+          echo "Input: $RAW ($(du -h "$RAW" | cut -f1))"
+
           NAME="eternalz-r${GITHUB_RUN_NUMBER}-$(echo "$GITHUB_SHA" | cut -c1-7).apk"
-          cp "$APK" "$NAME"
-          # Fail the build if the artifact would not install: a "successful"
-          # Gradle run can still emit something unsigned, empty, or missing dex.
-          node scripts/verify-apk.mjs "$NAME"
+
+          "$BT/zipalign" -f -p 4 "$RAW" aligned.apk
+          "$BT/apksigner" sign \
+            --ks android/app/debug.keystore \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --out "$NAME" aligned.apk
+
+          echo "── apksigner verify --verbose ──"
+          "$BT/apksigner" verify --verbose "$NAME"
+
+          # A signature scheme silently going missing is exactly the bug this
+          # step exists to prevent, so assert rather than eyeball.
+          "$BT/apksigner" verify --verbose "$NAME" | grep -q "v1 scheme (JAR signing): true" \
+            || { echo "v1 signature missing"; exit 1; }
+          "$BT/apksigner" verify --verbose "$NAME" | grep -q "v2 scheme (APK Signature Scheme v2): true" \
+            || { echo "v2 signature missing"; exit 1; }
+
           echo "path=$NAME" >> "$GITHUB_OUTPUT"
           echo "size=$(du -h "$NAME" | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the APK is installable
+        run: |
+          exec > >(tee collect.log) 2>&1
+          set -euo pipefail
+          # Fail if the artifact would not install: it can be signed yet still
+          # empty, missing dex, or built for the wrong architecture.
+          node scripts/verify-apk.mjs "${{ steps.apk.outputs.path }}"
 
       # Ground truth, from Android's own tools rather than a hand-rolled parser.
       #
