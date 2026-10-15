@@ -253,14 +253,15 @@ declaring that dependency. If you don't have the CLI, use Option 1.
 
 ### Getting the app onto a phone
 
-The build runs on GitHub's runners (this sandbox has no Android SDK) and attaches an APK to each run:
+The build runs on GitHub's runners (this sandbox has no Android SDK) and publishes the newest APK to a permanent link:
 
-1. Open **[Actions → Android APK](https://github.com/WaquarShaikh5555/app-appwrite/actions/workflows/android-apk.yml)**.
-2. Pick the newest run with a green tick.
-3. Scroll to **Artifacts** and download `eternalz-apk-<n>.zip`.
-4. Unzip it, copy the `.apk` to your phone, and tap it — Android will ask once to allow installs from that source.
+**https://github.com/WaquarShaikh5555/app-appwrite/releases/latest/download/eternalz.apk**
 
-Note the APK is signed with Android's debug keystore, which is fine for sideloading and testing but is not a Play Store key.
+Open that on the phone, let it download, then tap it from **Files → Downloads**. Android asks once to allow installs from that source.
+
+Use this instead of the **Artifacts** download on the Actions page: Artifacts are served as a ZIP, so the file has to be extracted on the phone first, and installing the zip (or a half-extracted copy) gives *"There was a problem parsing the package"*. The APK is ~54 MB; the zip is ~29 MB, so the size tells you which you are holding.
+
+The APK is signed with Android's debug keystore — fine for sideloading and testing, not a Play Store key.
 
 ### Check everything
 

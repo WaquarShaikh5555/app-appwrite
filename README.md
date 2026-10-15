@@ -42,18 +42,28 @@ Settings → **Test connection** pings Appwrite and shows the round-trip time, s
 
 ### Install the app on a phone (APK)
 
-Every push to this branch builds an installable APK on GitHub's runners and attaches it to the run:
+**Download, then tap it on your phone:**
 
-**→ [Latest Android build](https://github.com/WaquarShaikh5555/app-appwrite/actions/workflows/android-apk.yml)**
+**→ https://github.com/WaquarShaikh5555/app-appwrite/releases/latest/download/eternalz.apk**
 
-Open the newest successful run, scroll to **Artifacts**, and download `eternalz-apk-<n>`. Unzip it, move the `.apk` to your phone, and tap it. Android will ask you to allow installing from that source the first time — that is the standard sideloading prompt.
+That URL always serves the newest build and downloads a real `.apk` — about 54 MB.
+
+Use that link rather than the **Artifacts** download on the Actions page. Artifacts are always served as a **ZIP**, so you have to extract it on the phone first; every step between the download and the installer is a chance to end up installing something that is not the APK, which Android reports as *"There was a problem parsing the package"*. (The giveaway: the ZIP is ~29 MB while the actual APK is ~54 MB. If the file you are tapping is 29 MB, it is the zip.)
+
+Then:
+
+1. Open the link **on the phone** and let it finish downloading.
+2. Open **Files → Downloads** and tap `eternalz.apk`.
+3. Android asks once to allow installs from that source — allow it, then install.
+
+Every build prints the APK's `sha256` and, using Android's own `aapt2` and `apksigner`, confirms the manifest parses and which signature schemes are present — visible in the run's summary annotations.
 
 Two things worth knowing:
 
 - The APK is signed with Android's **debug keystore**, which Expo's template wires up for release builds. Android accepts it for sideloading, so it installs and runs normally — but it is not a Play Store key, and a future build has to use the same key to upgrade over an existing installation.
 - The Document Manager needs its backend provisioned first ([docs/SETUP.md](docs/SETUP.md)), otherwise it opens and reports what is missing. Everything else — the tour, the dashboard, accounts, the tools list — works immediately.
 
-The build is defined in [`.github/workflows/android-apk.yml`](.github/workflows/android-apk.yml): it runs `expo prebuild` (so `android/` stays untracked and `app.json` remains the source of truth), builds two ABIs, and refuses to publish an artifact unless it is a genuinely signed APK with a manifest, dex and arm64 native code — see [`scripts/verify-apk.mjs`](scripts/verify-apk.mjs).
+The build is defined in [`.github/workflows/android-apk.yml`](.github/workflows/android-apk.yml): it runs `expo prebuild` (so `android/` stays untracked and `app.json` remains the source of truth), builds two ABIs, signs with both APK Signature Scheme v1 and v2 for sideloading resilience, and refuses to publish an artifact unless it is genuinely signed with a manifest, dex and arm64 native code — see [`scripts/verify-apk.mjs`](scripts/verify-apk.mjs).
 
 ### Document Manager backend
 
