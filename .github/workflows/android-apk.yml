@@ -183,35 +183,61 @@ jobs:
           exec > >(tee sign.log) 2>&1
           set -euo pipefail
           BT="${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools/35.0.0"
-          RAW=android/app/build/outputs/apk/release/app-release-unsigned.apk
-          if [ ! -f "$RAW" ]; then
-            echo "No unsigned release APK at $RAW. Contents of the outputs tree:"
-            find android/app/build/outputs -type f 2>/dev/null | head -40 || true
+
+          echo "build-tools: $BT"
+          ls -1 "$BT" | grep -E "^(apksigner|zipalign)$" || {
+            echo "apksigner/zipalign missing from $BT"; exit 1;
+          }
+
+          echo
+          echo "── what Gradle produced ──"
+          find android/app/build/outputs/apk -type f 2>/dev/null | sort || true
+          # Don't hardcode the filename: AGP's suffix depends on whether it
+          # considered the build type signed.
+          RAW=$(find android/app/build/outputs/apk/release -name "*.apk" 2>/dev/null | head -1)
+          if [ -z "$RAW" ]; then
+            echo "No APK found under android/app/build/outputs/apk/release"
             exit 1
           fi
-          echo "Input: $RAW ($(du -h "$RAW" | cut -f1))"
+          echo "input: $RAW ($(du -h "$RAW" | cut -f1))"
+
+          KS=android/app/debug.keystore
+          [ -f "$KS" ] || { echo "debug keystore missing at $KS"; exit 1; }
 
           NAME="eternalz-r${GITHUB_RUN_NUMBER}-$(echo "$GITHUB_SHA" | cut -c1-7).apk"
 
+          echo
+          echo "── zipalign ──"
+          set -x
           "$BT/zipalign" -f -p 4 "$RAW" aligned.apk
+          set +x
+
+          echo
+          echo "── apksigner sign (v1 + v2) ──"
+          set -x
           "$BT/apksigner" sign \
-            --ks android/app/debug.keystore \
+            --ks "$KS" \
             --ks-key-alias androiddebugkey \
             --ks-pass pass:android \
             --key-pass pass:android \
             --v1-signing-enabled true \
             --v2-signing-enabled true \
             --out "$NAME" aligned.apk
+          set +x
 
+          echo
           echo "── apksigner verify --verbose ──"
           "$BT/apksigner" verify --verbose "$NAME"
 
           # A signature scheme silently going missing is exactly the bug this
-          # step exists to prevent, so assert rather than eyeball.
-          "$BT/apksigner" verify --verbose "$NAME" | grep -q "v1 scheme (JAR signing): true" \
-            || { echo "v1 signature missing"; exit 1; }
-          "$BT/apksigner" verify --verbose "$NAME" | grep -q "v2 scheme (APK Signature Scheme v2): true" \
-            || { echo "v2 signature missing"; exit 1; }
+          # step exists to prevent, so assert rather than eyeball. `|| true` on
+          # the probes keeps the output in the log for the reporter when they do
+          # not match.
+          V1=$("$BT/apksigner" verify --verbose "$NAME" | grep -c "v1 scheme (JAR signing): true" || true)
+          V2=$("$BT/apksigner" verify --verbose "$NAME" | grep -c "v2 scheme (APK Signature Scheme v2): true" || true)
+          echo "assertions: v1=$V1 v2=$V2"
+          [ "$V1" -ge 1 ] || { echo "FAILED: v1 signature absent"; exit 1; }
+          [ "$V2" -ge 1 ] || { echo "FAILED: v2 signature absent"; exit 1; }
 
           echo "path=$NAME" >> "$GITHUB_OUTPUT"
           echo "size=$(du -h "$NAME" | cut -f1)" >> "$GITHUB_OUTPUT"
@@ -317,7 +343,7 @@ jobs:
               grab > 0 { print; grab-- }
             ' "$file" 2>/dev/null | head -n 200
           }
-          for log in inspect.log collect.log bundle.log prebuild.log android/gradle.log; do
+          for log in sign.log inspect.log collect.log bundle.log prebuild.log android/gradle.log; do
             [ -f "$log" ] || continue
             echo "── $log: $(wc -l < "$log") lines ──"
             emit "$log — failure" "$(slice "$log" '(What went wrong|not a usable APK|produced no APK|Cannot|cannot|Unable|Error|error)' 3 14)"
