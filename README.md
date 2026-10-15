@@ -56,7 +56,7 @@ Then:
 2. Open **Files → Downloads** and tap `eternalz.apk`.
 3. Android asks once to allow installs from that source — allow it, then install.
 
-Every build prints the APK's `sha256` and, using Android's own `aapt2` and `apksigner`, confirms the manifest parses and which signature schemes are present — visible in the run's summary annotations.
+Every build prints the APK's `sha256` and, using Android's own `aapt2` and `apksigner`, confirms the manifest parses and which signature schemes are present — visible in the run's summary annotations. It is annotated with `--min-sdk-version 23` on purpose: at `minSdkVersion` 24 and above `apksigner` skips the JAR-signature check entirely and reports v1 as *false* even when the signature is there, which makes a correctly signed APK look v2-only.
 
 Two things worth knowing:
 

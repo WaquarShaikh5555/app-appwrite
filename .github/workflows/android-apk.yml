@@ -236,15 +236,30 @@ jobs:
           echo "── apksigner verify --verbose ──"
           "$BT/apksigner" verify --verbose "$NAME"
 
-          # A signature scheme silently going missing is exactly the bug this
-          # step exists to prevent, so assert rather than eyeball. `|| true` on
-          # the probes keeps the output in the log for the reporter when they do
-          # not match.
-          V1=$("$BT/apksigner" verify --verbose "$NAME" | grep -c "v1 scheme (JAR signing): true" || true)
+          # apksigner will not *report* a v1 signature when the APK's
+          # minSdkVersion is 24 or higher: JAR signing cannot be used on those
+          # platforms, so the verifier does not look at it and prints
+          # "v1 scheme (JAR signing): false" even when the signature is present.
+          # Passing the min SDK explicitly is what makes the check run. Reading
+          # that line without this flag is how a correctly signed APK gets
+          # mistaken for a v2-only one.
+          echo
+          echo "── apksigner verify --verbose --min-sdk-version 23 (so the v1 check runs) ──"
+          "$BT/apksigner" verify --verbose --min-sdk-version 23 "$NAME"
+
+          # Assert rather than eyeball: a scheme silently going missing is
+          # exactly what this step exists to catch. `|| true` keeps a count of 0
+          # in the log for the reporter instead of aborting the script here.
+          V1=$("$BT/apksigner" verify --verbose --min-sdk-version 23 "$NAME" | grep -c "v1 scheme (JAR signing): true" || true)
           V2=$("$BT/apksigner" verify --verbose "$NAME" | grep -c "v2 scheme (APK Signature Scheme v2): true" || true)
-          echo "assertions: v1=$V1 v2=$V2"
+          # Independent ground truth, so the result does not rest on apksigner's
+          # min-SDK heuristics: v1 is a META-INF signature entry, v2/v3 lives in
+          # the APK Signing Block (which scripts/verify-apk.mjs inspects).
+          JAR=$(unzip -l "$NAME" | grep -cE "META-INF/[^/]+\.(RSA|DSA|EC)$" || true)
+          echo "assertions: apksigner v1=$V1 v2=$V2 | META-INF signature entries=$JAR"
           [ "$V1" -ge 1 ] || { echo "FAILED: v1 signature absent"; exit 1; }
           [ "$V2" -ge 1 ] || { echo "FAILED: v2 signature absent"; exit 1; }
+          [ "$JAR" -ge 1 ] || { echo "FAILED: no META-INF/*.RSA entry in the zip"; exit 1; }
 
           echo "path=$NAME" >> "$GITHUB_OUTPUT"
           echo "size=$(du -h "$NAME" | cut -f1)" >> "$GITHUB_OUTPUT"
@@ -286,7 +301,12 @@ jobs:
           echo
           echo "── apksigner verify --verbose --print-certs ──"
           "$BT/apksigner" verify --verbose --print-certs "$APK" 2>&1 | sed -n '1,25p'
-          VERIFIED="$("$BT/apksigner" verify --verbose "$APK" 2>&1 | grep -E '^Verified using' | tr '\n' '|')"
+          # --min-sdk-version 23, otherwise the v1 line reads "false" for every
+          # APK whose minSdkVersion is >= 24 whether or not a JAR signature is
+          # present: apksigner skips that check on such targets.
+          VERIFIED="$("$BT/apksigner" verify --verbose --min-sdk-version 23 "$APK" 2>&1 | grep -E '^Verified using' | tr '\n' '|')"
+          JARV1="$(unzip -l "$APK" 2>/dev/null | grep -cE 'META-INF/[^/]+\.(RSA|DSA|EC)$' || true)"
+          echo "META-INF signature entries: $JARV1"
 
           echo
           echo "── aapt2 dump badging ──"

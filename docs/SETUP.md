@@ -261,7 +261,9 @@ Open that on the phone, let it download, then tap it from **Files → Downloads*
 
 Use this instead of the **Artifacts** download on the Actions page: Artifacts are served as a ZIP, so the file has to be extracted on the phone first, and installing the zip (or a half-extracted copy) gives *"There was a problem parsing the package"*. The APK is ~54 MB; the zip is ~29 MB, so the size tells you which you are holding.
 
-The APK is signed with Android's debug keystore — fine for sideloading and testing, not a Play Store key.
+The APK is signed with Android's debug keystore — fine for sideloading and testing, not a Play Store key. It carries **both** signature schemes: the pipeline strips Expo's release signing config so Gradle emits `app-release-unsigned.apk`, then signs it explicitly with `apksigner --v1-signing-enabled true --v2-signing-enabled true` and refuses to publish unless both are verified. Two schemes matter because v2 covers the whole file byte-for-byte (so a single altered byte makes Android refuse it) while v1 signs entries individually and still lets the installer fall back.
+
+One trap worth knowing if you ever check a build by hand: `apksigner verify --verbose` prints `Verified using v1 scheme (JAR signing): false` for *any* APK whose `minSdkVersion` is 24+, because it does not check JAR signing on targets that cannot use it. Pass `--min-sdk-version 23` to make it report the truth.
 
 ### Check everything
 
