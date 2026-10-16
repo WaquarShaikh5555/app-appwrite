@@ -1,0 +1,140 @@
+# Runs scripts/setup-appwrite.mjs against the real Appwrite project.
+#
+# Why this exists: the sandbox the code is written in cannot reach
+# tor.cloud.appwrite.io (only a short allowlist of hosts is routable from it), so
+# the one command that provisions the backend cannot be run from there. GitHub's
+# runners have no such limitation — and a repository secret is a better home for
+# an API key than a chat message, a shell history or a file on disk.
+#
+# How to use it:
+#
+#   1. Appwrite console → Overview → Integrations → API keys → Create key
+#      Scopes: read + write on Databases, Tables, Buckets and Functions.
+#   2. GitHub → Settings → Secrets and variables → Actions → New repository
+#      secret, named APPWRITE_API_KEY, value = that key.
+#   3. Actions → "Appwrite setup" → Run workflow.
+#
+# The key is masked in the logs by GitHub and is never printed by the script. It
+# is only ever passed as an environment variable — never echoed, never written to
+# a file, and not needed again after setup finishes, so it can be deleted once
+# the setup check in the app is green.
+
+name: Appwrite setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      redeploy:
+        description: "Rebuild the join service even if a deployment is already live"
+        type: boolean
+        default: true
+  push:
+    paths:
+      - ".github/workflows/appwrite-setup.yml"
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Provisioning is idempotent but not worth running twice at once.
+  group: appwrite-setup
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    name: Provision the backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      APPWRITE_ENDPOINT: https://tor.cloud.appwrite.io/v1
+      APPWRITE_PROJECT_ID: 6acf0e9b0034e6ac2483
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+
+      # Fail with instructions rather than an empty key prompt, which would hang
+      # or exit with a message about a missing terminal.
+      - name: Make sure the API key secret exists
+        env:
+          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+        run: |
+          if [ -z "${APPWRITE_API_KEY}" ]; then
+            echo "::error title=Add the APPWRITE_API_KEY secret::Settings → Secrets and variables → Actions → New repository secret · name: APPWRITE_API_KEY · value: an Appwrite API key with read and write on Databases, Tables, Buckets and Functions. Then run this workflow again."
+            exit 1
+          fi
+          echo "Secret is present (${#APPWRITE_API_KEY} characters, not printed)."
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --include=dev
+
+      # The script is idempotent: existing resources are left alone, and a live
+      # deployment is only rebuilt when asked.
+      - name: Create and deploy everything
+        env:
+          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+        run: |
+          set -o pipefail
+          ARGS=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.redeploy }}" = "true" ]; then
+            ARGS="--redeploy"
+          fi
+          node scripts/setup-appwrite.mjs $ARGS 2>&1 | tee setup.log
+
+      - name: Show the errors
+        if: failure()
+        run: |
+          grep -nE "✖|error|Error" setup.log 2>/dev/null | tail -20 || tail -30 setup.log || true
+
+      # The Actions log host is not reachable from the sandbox that writes this
+      # code, so the outcome has to travel as annotations to be readable.
+      - name: Report the result as annotations
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+
+          log_path = pathlib.Path("setup.log")
+          if not log_path.exists():
+              print("::error title=Setup produced no log::setup.log is missing — the workflow stopped before the setup step ran.")
+              sys.exit(0)
+
+          log = log_path.read_text(errors="replace")
+
+          def emit(kind, title, body):
+              body = (body or "").strip()
+              if not body:
+                  return
+              body = body.replace("%", "%25").replace("\r", "").replace("\n", "%0A")[:3400]
+              print(f"::{kind} title={title}::{body}")
+
+          state = re.search(r"What exists now:\n(.*?)(?:\n\n|\Z)", log, re.S)
+          if state:
+              emit("notice", "Backend state", state.group(1))
+
+          created = [line for line in log.splitlines() if line.startswith("✔")]
+          if created:
+              emit("notice", "Created in this run", "\n".join(created))
+
+          failures = [line for line in log.splitlines() if line.startswith("✖") or "✖ Setup failed" in line]
+          if failures:
+              emit("error", "Setup failed", "\n".join(failures))
+
+          if not state and not failures:
+              emit("notice", "Setup output (tail)", "\n".join(log.strip().splitlines()[-25:]))
+          PY
+
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appwrite-setup-log-${{ github.run_number }}
+          path: setup.log
+          retention-days: 14
