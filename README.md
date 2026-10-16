@@ -76,7 +76,7 @@ pnpm vault:test     # 119 offline checks, no backend and no network needed
 
 The key needs read and write on Databases, Tables, Buckets and Functions. It is used once and not written anywhere. Re-running is safe: existing resources are left alone, and a live deployment is not rebuilt unless you pass `--redeploy`.
 
-…or create the resources by hand in the Appwrite console, no terminal at all. Both routes are covered step by step in **[docs/SETUP.md](docs/SETUP.md)**; it also includes where commands actually run, which is not inside Appwrite. Then open **Tools → Document Manager → Setup check** in the app to verify the backend.
+…or create the resources by hand in the Appwrite console, no terminal at all — or let GitHub do it for you through the **Appwrite setup** workflow, which runs the same script on a runner with the API key held as a repository secret. Both routes are covered step by step in **[docs/SETUP.md](docs/SETUP.md)**; it also includes where commands actually run, which is not inside Appwrite. Then open **Tools → Document Manager → Setup check** in the app to verify the backend.
 
 > **Running on web?** The browser enforces CORS. If the connection test fails there, add a **Web platform** in the Appwrite console (Project → Platforms) for the host you're serving from. Android and iOS have no such rule.
 

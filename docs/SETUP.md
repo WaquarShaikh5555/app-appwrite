@@ -208,6 +208,31 @@ leave a working deployment alone, since rebuilding takes about a minute), and
 > **If you edited `functions/join-group`,** run `pnpm vault:setup --redeploy` — the
 > deployed copy does not update by itself.
 
+### Path B — without running anything on your own computer
+
+If you would rather not run the command locally, the same script runs on GitHub's
+runners through the **Appwrite setup** workflow. That is the route used when
+setting this project up from a machine that cannot reach
+`tor.cloud.appwrite.io` — the Appwrite cloud is not always reachable from every
+network, and a CI runner sidesteps that entirely.
+
+1. Appwrite console → **Overview → Integrations → API keys → Create key**, with
+   read and write on **Databases, Tables, Buckets and Functions**.
+2. On GitHub: **Settings → Secrets and variables → Actions → New repository
+   secret**, name **`APPWRITE_API_KEY`**, value = that key. GitHub masks it in
+   every log.
+3. **Actions → Appwrite setup → Run workflow** (tick *redeploy* to rebuild the join
+   service even if a deployment is already live).
+
+The run's summary says what it found and created, and fails with an explanation
+if the key is missing, rejected, or short of a scope. The key is used only as an
+environment variable; nothing prints it, and you can delete it once the app's
+Setup check is green.
+
+The workflow also re-runs on its own when `scripts/setup-appwrite.mjs` or
+anything under `functions/join-group/` changes, so the deployed backend cannot
+drift from the code in the repository.
+
 ---
 
 ## Part 4 — Deploy the invite code function
