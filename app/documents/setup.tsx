@@ -113,20 +113,15 @@ export default function VaultSetupScreen() {
             <Text style={type.bodyStrong}>One-time setup</Text>
             <View style={styles.steps}>
               <Text style={type.caption}>
-                1. Create the bucket, database and tables:
+                One command, from the project folder. It creates the database,
+                bucket and tables, then deploys the join service that turns
+                invite codes into group membership — and signs in nowhere.
               </Text>
-              <Text style={styles.code}>
-                APPWRITE_API_KEY=… node scripts/setup-appwrite.mjs
-              </Text>
+              <Text style={styles.code}>pnpm vault:setup</Text>
               <Text style={type.caption}>
-                2. Deploy the join service (needed for invite codes):
-              </Text>
-              <Text style={styles.code}>
-                cd functions/join-group &amp;&amp; npm install &amp;&amp; appwrite push function
-              </Text>
-              <Text style={type.caption}>
-                3. Give that function an API key (Teams read/write, rows read) in
-                the console, then re-run these checks.
+                It asks for an Appwrite API key with read and write on
+                Databases, Tables, Buckets and Functions. The key is used once and
+                never saved. Re-run the checks above when it finishes.
               </Text>
             </View>
           </GlassCard>

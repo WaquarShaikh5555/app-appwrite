@@ -149,7 +149,7 @@ export async function joinGroupWithCode(rawCode: string): Promise<JoinResult> {
       ok: false,
       message:
         `Could not reach the join service: ${detail}. ` +
-        `Deploy functions/join-group — see docs/VAULT.md — then try again.`,
+        `Run \`pnpm vault:setup\` to deploy it, then try again.`,
     };
   }
 

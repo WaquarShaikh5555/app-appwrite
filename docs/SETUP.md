@@ -11,9 +11,11 @@ There are two ways to set up the backend. Pick one:
 | **You need** | A browser | A browser + Node.js + the code on your computer |
 | **Effort** | ~10 min of clicking | ~2 min |
 | **How** | Create resources by hand in the Appwrite console | Run `pnpm vault:setup` and it makes everything |
+| **Covers** | Parts 3A and 4 | Part 3B only — it also creates the function, deploys it and gives it its scopes |
 
-Both end at [Part 4](#part-4--deploy-the-invite-code-function), which is the same
-either way.
+Path B needs an API key and nothing else; after it finishes there is no Part 4 to
+do. Path A is for when there is no terminal available at all, and Part 4 explains
+the manual function deployment it requires.
 
 ---
 
@@ -48,10 +50,11 @@ node --version      # should print v18 or higher
 If `node --version` says "not recognized" / "command not found", install Node.js
 from [nodejs.org](https://nodejs.org) (the LTS button), then reopen the terminal.
 
-> **Skip all of this if you want Path A.** You can do the whole setup by clicking
-> in the Appwrite console and never open a terminal — except the **`cd` into the
-> project folder** in Part 4, which is unavoidable when deploying the function
-> that checks invite codes. Nothing else in this guide needs a terminal.
+> **Two ways from here.** Path B (`pnpm vault:setup`) does everything from this
+> terminal: database, bucket, tables and the invite-code function, deployed and
+> scoped. Path A does the same work by clicking in the Appwrite console, with no
+> terminal at all — the only thing Path A cannot avoid is deploying the function
+> by hand in Part 4, which is why it takes longer.
 
 ---
 
@@ -165,8 +168,17 @@ In your terminal, from the project folder:
 
 ```bash
 pnpm install          # once, installs the project's dependencies
-pnpm vault:setup      # creates the database, bucket, tables and indexes
+pnpm vault:setup      # creates everything, then deploys the join service
 ```
+
+It creates the database `eternalz`, the bucket `vault-docs`, the tables
+`vault_groups` and `vault_files` with their columns and indexes, and then
+**deploys `functions/join-group` and activates it** with the three scopes it needs
+at runtime (`teams.read`, `teams.write`, `rows.read` — set on the function, which
+is why no key has to be pasted into its settings). It finishes by reading
+everything back so you can see what exists.
+
+The key needs read and write on **Databases, Tables, Buckets and Functions**.
 
 `pnpm vault:setup` asks you to paste the API key from Part 2 — it is **not
 echoed** while you type and is **never written to disk**. Paste, press Enter.
@@ -180,14 +192,29 @@ $env:APPWRITE_API_KEY="your-key"; pnpm vault:setup   # Windows PowerShell
 ```
 
 It is safe to run repeatedly: anything that already exists is left alone, so it
-will never duplicate or overwrite your data.
+will never duplicate or overwrite your data. The function's settings are the one
+exception — if they have drifted from what this repo needs, it says what it is
+changing and puts them back.
 
-Check the result any time by re-running it — every line reports either
-`✔ created` or `• already exists`.
+Check the result any time by re-running it — every line reports `✔ created`,
+`• already exists`, or what it repaired. The closing list is the same four things
+the app's **Setup check** looks at.
+
+Two flags, if you need them: `--redeploy` ships the code currently in
+`functions/join-group` even when a deployment is already live (the default is to
+leave a working deployment alone, since rebuilding takes about a minute), and
+`--skip-deploy` sets up everything except the function's code.
+
+> **If you edited `functions/join-group`,** run `pnpm vault:setup --redeploy` — the
+> deployed copy does not update by itself.
 
 ---
 
 ## Part 4 — Deploy the invite code function
+
+> **Already done if you used Path B.** `pnpm vault:setup` creates this function,
+> deploys it and sets its scopes. Skip to [Part 5](#part-5--check-it-worked), unless
+> you would rather do it in the console yourself.
 
 This one piece is required for **joining a group**, and it can't be done from the
 app: verifying an invite code and adding somebody to a team is a privileged
@@ -287,9 +314,10 @@ account using the invite code.
 | --- | --- |
 | **Missing** on the bucket or a table | The ID doesn't match. It must be exactly `vault-docs`, `vault_groups`, `vault_files` — check for typos and stray spaces. |
 | **Check permissions** on a table | Row security (or the Users→`create` permission) isn't enabled on that table. |
-| **Missing** on the function | The function ID isn't `join-group`, or it was created without **Execute access: Any**. |
-| Setup check says the function failed | Open **Functions → join-group → Logs**. The usual cause is the environment variable or the missing `node-appwrite` dependency (Part 4, step 7). |
-| `Cannot find module 'node-appwrite'` in the logs | Part 4 step 7 — add the dependency in the console, or run `npm install` in `functions/join-group` before pushing. |
+| **Missing** on the function | The function ID isn't `join-group`, or it was created without **Execute access: Any**. `pnpm vault:setup` fixes both. |
+| Setup check says the function failed | Open **Functions → join-group → Logs**. If the deployment never finished building, re-run `pnpm vault:setup --redeploy` — the build output is printed for you when a build fails. |
+| `Cannot find module 'node-appwrite'` in the logs | The deployed package is missing its dependency. `pnpm vault:setup --redeploy` repackages `functions/join-group` with its `package.json` and builds it with `npm install`.
+| Setup says the key was rejected (401) or is missing a permission (403) | The key needs read and write on Databases, Tables, Buckets **and Functions** — `functions.write` is what creates and deploys the join service. |
 | **401 / Unauthorized** when opening a file | Working as intended for a non-member. If you *are* a member, your membership was removed or the file's permissions were altered by hand. |
 | An invite code isn't accepted | Codes are shown once at creation and stored only as a hash — they can't be recovered. Open the group and **Rotate invite code** to get a fresh one. |
 | `pnpm: command not found` | Use `npm run vault:setup` instead — same thing. |

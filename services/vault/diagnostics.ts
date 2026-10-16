@@ -100,7 +100,7 @@ async function checkJoinFunction(): Promise<DiagnosticCheck> {
       status,
       detail,
       fix:
-        "Deploy functions/join-group with `appwrite push function` — invite-code joining needs it.",
+        "Run `pnpm vault:setup` — it deploys the join service, which invite codes need.",
     };
   }
 }

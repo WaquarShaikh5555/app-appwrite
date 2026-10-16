@@ -12,7 +12,9 @@
     "test": "jest --watchAll",
     "lint": "expo lint",
     "vault:setup": "node scripts/setup-appwrite.mjs",
-    "vault:test": "node scripts/test-vault-logic.mjs"
+    "vault:test": "node scripts/test-vault-logic.mjs && node scripts/test-setup-packaging.mjs && node scripts/test-setup-flow.mjs",
+    "vault:test:packaging": "node scripts/test-setup-packaging.mjs",
+    "vault:test:setup": "node scripts/test-setup-flow.mjs"
   },
   "jest": {
     "preset": "jest-expo"

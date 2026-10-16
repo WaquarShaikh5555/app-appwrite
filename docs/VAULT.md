@@ -63,14 +63,31 @@ the schema table in §4.
 Invite codes are verified **server-side only**. A client can never add itself to
 a foreign team, which is why joining goes through a function.
 
+`pnpm vault:setup` does this: it creates the function, packages
+`functions/join-group` as a tar.gz, uploads it, waits for the build and activates
+the deployment with the scopes below set on the function itself. Run it again with
+`--redeploy` after editing the function's code.
+
+The scopes are what let it work without a key being pasted anywhere — Appwrite
+injects `APPWRITE_FUNCTION_API_KEY` for a function that has them:
+
+| Scope | Why |
+| --- | --- |
+| `teams.read` | Check whether the caller is already a member |
+| `teams.write` | Add the caller to the group's team |
+| `rows.read` | Read the group row holding the invite-code hash |
+
+Doing it by hand instead (the Appwrite CLI, or **Functions → Create function** in
+the console) also works; the equivalent CLI is:
+
 ```bash
 cd functions/join-group
 npm install
 appwrite push function
 ```
 
-Then, in the console: **Functions → join-group → Settings → Environment
-variables**, add
+Either way, if the function was created without scopes, add a key in the console
+at **Functions → join-group → Settings → Environment variables**:
 
 | Variable | Value |
 | --- | --- |

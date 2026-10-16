@@ -67,12 +67,14 @@ The build is defined in [`.github/workflows/android-apk.yml`](.github/workflows/
 
 ### Document Manager backend
 
-The file rooms need a bucket, two tables and one function before they'll work. Two ways to do it — pick whichever suits you:
+The file rooms need a bucket, two tables and one function before they'll work. One command creates all of it — database, bucket, tables, columns, indexes — and then packages, deploys and activates the invite-code function with the scopes it needs:
 
 ```bash
-pnpm vault:setup    # creates everything; asks for an API key (never saved to disk)
-pnpm vault:test     # 60 offline logic checks, no backend needed
+pnpm vault:setup    # creates and deploys everything; asks for an API key (never saved to disk)
+pnpm vault:test     # 119 offline checks, no backend and no network needed
 ```
+
+The key needs read and write on Databases, Tables, Buckets and Functions. It is used once and not written anywhere. Re-running is safe: existing resources are left alone, and a live deployment is not rebuilt unless you pass `--redeploy`.
 
 …or create the resources by hand in the Appwrite console, no terminal at all. Both routes are covered step by step in **[docs/SETUP.md](docs/SETUP.md)**; it also includes where commands actually run, which is not inside Appwrite. Then open **Tools → Document Manager → Setup check** in the app to verify the backend.
 
